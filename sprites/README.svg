@@ -1,0 +1,51 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="400" height="280" viewBox="0 0 400 280">
+  <rect width="400" height="280" fill="#f8f8f8"/>
+  <text x="10" y="18" font-size="12" font-weight="bold" font-family="monospace" fill="#222">JFR Game — Sprite index (Level 1 / Diver)</text>
+  <text x="10" y="32" font-size="9"  font-family="monospace" fill="#666">All sprites are 48×48 SVG — import into Aseprite or replace directly</text>
+
+  <!-- diver -->
+  <image href="diver.svg"       x="10"  y="45" width="48" height="48"/>
+  <text x="34"  y="102" text-anchor="middle" font-size="9" font-family="monospace" fill="#333">diver.svg</text>
+  <text x="34"  y="112" text-anchor="middle" font-size="8" font-family="monospace" fill="#888">4 frames in JS</text>
+
+  <!-- jellyfish -->
+  <image href="jellyfish.svg"   x="70"  y="45" width="48" height="48"/>
+  <text x="94"  y="102" text-anchor="middle" font-size="9" font-family="monospace" fill="#333">jellyfish.svg</text>
+  <text x="94"  y="112" text-anchor="middle" font-size="8" font-family="monospace" fill="#888">2 frames</text>
+
+  <!-- shark -->
+  <image href="shark.svg"       x="130" y="45" width="48" height="48"/>
+  <text x="154" y="102" text-anchor="middle" font-size="9" font-family="monospace" fill="#333">shark.svg</text>
+  <text x="154" y="112" text-anchor="middle" font-size="8" font-family="monospace" fill="#888">2 frames</text>
+
+  <!-- octopus -->
+  <image href="octopus.svg"     x="190" y="45" width="48" height="48"/>
+  <text x="214" y="102" text-anchor="middle" font-size="9" font-family="monospace" fill="#333">octopus.svg</text>
+  <text x="214" y="112" text-anchor="middle" font-size="8" font-family="monospace" fill="#888">2 frames</text>
+
+  <!-- o2 tank -->
+  <image href="o2-tank.svg"     x="250" y="45" width="48" height="48"/>
+  <text x="274" y="102" text-anchor="middle" font-size="9" font-family="monospace" fill="#333">o2-tank.svg</text>
+  <text x="274" y="112" text-anchor="middle" font-size="8" font-family="monospace" fill="#888">powerup</text>
+
+  <!-- speed boost -->
+  <image href="speed-boost.svg" x="310" y="45" width="48" height="48"/>
+  <text x="334" y="102" text-anchor="middle" font-size="9" font-family="monospace" fill="#333">speed-boost.svg</text>
+  <text x="334" y="112" text-anchor="middle" font-size="8" font-family="monospace" fill="#888">powerup</text>
+
+  <!-- heart + bubble (row 2) -->
+  <image href="heart.svg"       x="10"  y="130" width="48" height="48"/>
+  <text x="34"  y="187" text-anchor="middle" font-size="9" font-family="monospace" fill="#333">heart.svg</text>
+  <text x="34"  y="197" text-anchor="middle" font-size="8" font-family="monospace" fill="#888">UI — lives</text>
+
+  <image href="bubble.svg"      x="70"  y="146" width="16" height="16"/>
+  <text x="94"  y="187" text-anchor="middle" font-size="9" font-family="monospace" fill="#333">bubble.svg</text>
+  <text x="94"  y="197" text-anchor="middle" font-size="8" font-family="monospace" fill="#888">16×16 FX</text>
+
+  <!-- separator -->
+  <line x1="10" y1="215" x2="390" y2="215" stroke="#ccc" stroke-width="1"/>
+  <text x="10"  y="230" font-size="9" font-family="monospace" fill="#555">Usage: open each SVG in Aseprite (File → Import) or any vector editor</text>
+  <text x="10"  y="242" font-size="9" font-family="monospace" fill="#555">Export as PNG 48×48, then wire into sprites.ts when migrating from canvas drawing</text>
+  <text x="10"  y="254" font-size="9" font-family="monospace" fill="#555">Sprite names in game.js: diver_0..3, diver_hurt, jellyfish_0..1, shark_0..1, octopus_0..1</text>
+  <text x="10"  y="266" font-size="9" font-family="monospace" fill="#555">                         o2_tank, speed_boost, heart_icon, o2_icon</text>
+</svg>

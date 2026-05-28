@@ -1,0 +1,14 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="48" height="48" viewBox="0 0 48 48">
+  <!-- dome body (upper half) -->
+  <path d="M 7 17 Q 7 3 24 3 Q 41 3 41 17 Z" fill="#dd88ff"/>
+  <!-- dome underside -->
+  <path d="M 7 17 Q 15 21 24 19 Q 33 21 41 17" fill="none" stroke="#cc66ee" stroke-width="1.5"/>
+  <!-- inner dome highlight -->
+  <path d="M 12 15 Q 12 7 24 7 Q 36 7 36 15 Z" fill="#eeb0ff" opacity="0.35"/>
+  <!-- tentacles (5) -->
+  <path d="M 10 18 Q  6 28 10 38" fill="none" stroke="#cc66ee" stroke-width="2" stroke-linecap="round"/>
+  <path d="M 17 19 Q 13 29 17 38" fill="none" stroke="#cc66ee" stroke-width="2" stroke-linecap="round"/>
+  <path d="M 24 19 Q 24 29 24 38" fill="none" stroke="#cc66ee" stroke-width="2" stroke-linecap="round"/>
+  <path d="M 31 19 Q 35 29 31 38" fill="none" stroke="#cc66ee" stroke-width="2" stroke-linecap="round"/>
+  <path d="M 38 18 Q 42 28 38 38" fill="none" stroke="#cc66ee" stroke-width="2" stroke-linecap="round"/>
+</svg>

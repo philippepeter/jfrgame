@@ -1,0 +1,19 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="48" height="48" viewBox="0 0 48 48">
+  <!-- head / mantle -->
+  <ellipse cx="24" cy="17" rx="14" ry="13" fill="#cc4400"/>
+  <!-- mantle skirt top -->
+  <path d="M 10 26 Q 24 32 38 26" fill="#cc4400" stroke="#cc4400" stroke-width="1"/>
+  <!-- left eye white -->
+  <circle cx="18" cy="14" r="3.5" fill="#fff"/>
+  <circle cx="18" cy="14" r="1.5" fill="#111"/>
+  <!-- right eye white -->
+  <circle cx="30" cy="14" r="3.5" fill="#fff"/>
+  <circle cx="30" cy="14" r="1.5" fill="#111"/>
+  <!-- tentacles (6) alternating curves for animation feel -->
+  <path d="M 10 27 Q  7 35 10 43" fill="none" stroke="#cc4400" stroke-width="3" stroke-linecap="round"/>
+  <path d="M 16 28 Q 13 36 16 44" fill="none" stroke="#cc4400" stroke-width="3" stroke-linecap="round"/>
+  <path d="M 22 29 Q 19 37 22 45" fill="none" stroke="#cc4400" stroke-width="3" stroke-linecap="round"/>
+  <path d="M 26 29 Q 29 37 26 45" fill="none" stroke="#cc4400" stroke-width="3" stroke-linecap="round"/>
+  <path d="M 32 28 Q 35 36 32 44" fill="none" stroke="#cc4400" stroke-width="3" stroke-linecap="round"/>
+  <path d="M 38 27 Q 41 35 38 43" fill="none" stroke="#cc4400" stroke-width="3" stroke-linecap="round"/>
+</svg>

@@ -1,0 +1,8 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 16 16">
+  <!-- bubble fill -->
+  <circle cx="8" cy="8" r="6" fill="#7ecfff" opacity="0.45"/>
+  <!-- bubble rim -->
+  <circle cx="8" cy="8" r="6" fill="none" stroke="#a0e0ff" stroke-width="1.5" opacity="0.8"/>
+  <!-- highlight -->
+  <circle cx="5.5" cy="5.5" r="2" fill="#fff" opacity="0.45"/>
+</svg>
