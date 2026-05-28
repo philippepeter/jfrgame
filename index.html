@@ -1,0 +1,30 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <meta name="mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <title>JFR Game</title>
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <canvas id="gameCanvas"></canvas>
+
+  <!-- Virtual controls -->
+  <div id="controls" class="hidden">
+    <div id="dpad">
+      <button id="btn-up"    data-action="up"    aria-label="Up">▲</button>
+      <button id="btn-left"  data-action="left"  aria-label="Left">◀</button>
+      <button id="btn-right" data-action="right" aria-label="Right">▶</button>
+      <button id="btn-down"  data-action="down"  aria-label="Down">▼</button>
+    </div>
+    <div id="action-area">
+      <button id="btn-action" data-action="action" aria-label="Action">●</button>
+    </div>
+  </div>
+
+  <script src="game.js"></script>
+</body>
+</html>
