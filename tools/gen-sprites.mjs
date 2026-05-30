@@ -190,7 +190,7 @@ const sharkB = [
 
 // ---------- Composition de la planche ----------
 const SHEET_W = 64;
-const SHEET_H = 64;
+const SHEET_H = 96; // 64 (créatures) + 32 (tuiles de décor)
 const buf = new Uint8Array(SHEET_W * SHEET_H * 4); // RGBA, transparent par défaut
 
 function blit(art, ox, oy, w, h) {
@@ -217,6 +217,48 @@ blit(octoA, 0, 32, 16, 16);
 blit(octoB, 16, 32, 16, 16);
 blit(sharkA, 0, 48, 32, 16);
 blit(sharkB, 32, 48, 32, 16);
+
+// ---------- Tuiles de roche (décor parallaxe) ----------
+// Générées en pixels pleins (opaques) avec mouchetures, bords uniformes pour
+// se raccorder proprement quand on les assemble.
+function setPx(x, y, c) {
+  const i = (y * SHEET_W + x) * 4;
+  buf[i] = c[0];
+  buf[i + 1] = c[1];
+  buf[i + 2] = c[2];
+  buf[i + 3] = 255;
+}
+function rng(seed) {
+  let s = seed >>> 0;
+  return () => (s = (s * 1664525 + 1013904223) >>> 0) / 4294967296;
+}
+function paintRock(ox, oy, seed) {
+  const base = [70, 84, 100];
+  const dark = [48, 60, 74];
+  const crack = [38, 48, 60];
+  const light = [99, 116, 136];
+  const r = rng(seed);
+  for (let y = 0; y < 16; y++)
+    for (let x = 0; x < 16; x++) setPx(ox + x, oy + y, base);
+  // mouchetures à l'intérieur (bords laissés uniformes pour le raccord)
+  for (let n = 0; n < 18; n++) {
+    const x = 2 + ((r() * 12) | 0);
+    const y = 2 + ((r() * 12) | 0);
+    setPx(ox + x, oy + y, r() < 0.5 ? dark : light);
+  }
+  // quelques fissures courtes
+  for (let n = 0; n < 3; n++) {
+    let x = 3 + ((r() * 10) | 0);
+    let y = 3 + ((r() * 10) | 0);
+    for (let k = 0; k < 3; k++) {
+      setPx(ox + x, oy + y, crack);
+      x = Math.min(13, Math.max(2, x + ((r() * 3) | 0) - 1));
+      y = Math.min(13, y + 1);
+    }
+  }
+}
+paintRock(0, 64, 1337);
+paintRock(16, 64, 8675309);
 
 // ---------- Encodage PNG ----------
 function crc32(bytes) {
@@ -268,6 +310,8 @@ const atlas = {
     jelly: { frames: [[0, 16, 16, 16], [16, 16, 16, 16]], fps: 3 },
     octopus: { frames: [[0, 32, 16, 16], [16, 32, 16, 16]], fps: 4 },
     shark: { frames: [[0, 48, 32, 16], [32, 48, 32, 16]], fps: 6 },
+    rock1: { frames: [[0, 64, 16, 16]], fps: 1 },
+    rock2: { frames: [[16, 64, 16, 16]], fps: 1 },
   },
 };
 

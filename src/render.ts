@@ -11,7 +11,7 @@ import {
   type GameState,
   type Creature,
 } from "./game";
-import { drawSprite, frameFor } from "./sprites";
+import { drawSprite, frameFor, spritesReady } from "./sprites";
 
 type Ctx = CanvasRenderingContext2D;
 
@@ -38,6 +38,97 @@ const snow = Array.from({ length: 60 }, () => ({
 }));
 
 const mod = (v: number, m: number) => ((v % m) + m) % m;
+
+// ---------- Décor parallaxe : 3 couches de murs rocheux en tuiles ----------
+const BG_PATTERN_H = 936; // hauteur du motif (multiple de la tuile, périodique)
+const BG_TILE = 26; // taille d'une tuile à l'écran
+const BG_MARGIN = 30; // débord latéral pour le décalage d'inclinaison
+
+interface BgLayer {
+  canvas: HTMLCanvasElement;
+  par: number; // facteur de défilement vertical (profondeur)
+  hpar: number; // amplitude du décalage horizontal à l'inclinaison
+  alpha: number;
+}
+let bgLayers: BgLayer[] | null = null;
+
+// Largeur du mur (en px) à une hauteur de motif donnée : somme de sinus
+// périodiques sur BG_PATTERN_H → raccord sans couture lors du bouclage.
+function wallWidth(wy: number, base: number, amp: number, phase: number): number {
+  const a = Math.sin((2 * Math.PI * 1 * wy) / BG_PATTERN_H + phase);
+  const b = Math.sin((2 * Math.PI * 3 * wy) / BG_PATTERN_H + phase * 1.7);
+  const c = Math.sin((2 * Math.PI * 5 * wy) / BG_PATTERN_H + phase * 0.5);
+  return (
+    base +
+    amp * (0.5 + 0.5 * a) * 0.6 +
+    amp * (0.5 + 0.5 * b) * 0.3 +
+    amp * (0.5 + 0.5 * c) * 0.1
+  );
+}
+
+function buildWall(
+  base: number,
+  amp: number,
+  seedL: number,
+  seedR: number,
+  tint: string,
+): HTMLCanvasElement {
+  const W = WORLD_W + 2 * BG_MARGIN;
+  const cv = document.createElement("canvas");
+  cv.width = W;
+  cv.height = BG_PATTERN_H;
+  const oc = cv.getContext("2d")!;
+  oc.imageSmoothingEnabled = false;
+
+  for (let y = 0; y < BG_PATTERN_H; y += BG_TILE) {
+    const row = y / BG_TILE;
+    const colsL = Math.round(wallWidth(y, base, amp, seedL) / BG_TILE);
+    for (let c = 0; c < colsL; c++) {
+      const v = (c + row) % 2 === 0 ? "rock1" : "rock2";
+      drawSprite(oc, v, 0, c * BG_TILE + BG_TILE / 2, y + BG_TILE / 2, BG_TILE, BG_TILE);
+    }
+    const colsR = Math.round(wallWidth(y, base, amp, seedR) / BG_TILE);
+    for (let c = 0; c < colsR; c++) {
+      const v = (c + row) % 2 === 0 ? "rock2" : "rock1";
+      drawSprite(oc, v, 0, W - (c * BG_TILE + BG_TILE / 2), y + BG_TILE / 2, BG_TILE, BG_TILE);
+    }
+  }
+
+  // Teinte de profondeur (perspective atmosphérique) appliquée aux pixels dessinés.
+  oc.globalCompositeOperation = "source-atop";
+  oc.fillStyle = tint;
+  oc.fillRect(0, 0, W, BG_PATTERN_H);
+  oc.globalCompositeOperation = "source-over";
+  return cv;
+}
+
+function buildBgLayers(): void {
+  bgLayers = [
+    // lointain : large, peu contrasté, défile lentement, bouge peu à l'inclinaison
+    { canvas: buildWall(34, 30, 0.6, 2.3, "rgba(26,56,96,0.72)"), par: 0.22, hpar: 8, alpha: 0.5 },
+    // intermédiaire
+    { canvas: buildWall(30, 38, 4.1, 5.7, "rgba(14,38,70,0.6)"), par: 0.45, hpar: 16, alpha: 0.72 },
+    // proche : sombre, défile vite, bouge le plus à l'inclinaison
+    { canvas: buildWall(26, 46, 1.2, 3.9, "rgba(5,16,34,0.5)"), par: 0.82, hpar: 26, alpha: 0.95 },
+  ];
+}
+
+function drawBackgroundLayers(ctx: Ctx, s: GameState, tilt: number): void {
+  if (!bgLayers) {
+    if (!spritesReady()) return;
+    buildBgLayers();
+  }
+  const risen = MAX_DEPTH - s.depth;
+  ctx.imageSmoothingEnabled = false;
+  for (const L of bgLayers!) {
+    const off = mod(risen * L.par, BG_PATTERN_H);
+    const dx = -BG_MARGIN + tilt * L.hpar; // décalage horizontal (inclinaison)
+    ctx.globalAlpha = L.alpha;
+    ctx.drawImage(L.canvas, dx, off - BG_PATTERN_H);
+    ctx.drawImage(L.canvas, dx, off);
+  }
+  ctx.globalAlpha = 1;
+}
 
 // Zones de couleur selon la profondeur (df: 1 profond → 0 surface).
 const ABYSS_TOP = [2, 6, 18];
@@ -227,9 +318,10 @@ function dangerVeil(ctx: Ctx, s: GameState): void {
   ctx.fillRect(0, DANGER_START_Y - 60, WORLD_W, WORLD_H - DANGER_START_Y + 60);
 }
 
-export function render(ctx: Ctx, s: GameState): void {
+export function render(ctx: Ctx, s: GameState, tilt = 0): void {
   const t = s.time;
   background(ctx, s, t);
+  drawBackgroundLayers(ctx, s, tilt);
   marineSnow(ctx, s);
 
   for (const c of s.creatures) drawCreature(ctx, c, t);

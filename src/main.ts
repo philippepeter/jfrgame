@@ -167,6 +167,45 @@ const endPointer = () => {
 canvas.addEventListener("pointerup", endPointer);
 canvas.addEventListener("pointercancel", endPointer);
 
+// ---------- Parallaxe à l'inclinaison (gyroscope mobile / souris desktop) ----------
+let targetTilt = 0; // [-1, 1]
+let tilt = 0; // valeur lissée passée au rendu
+let orientationOn = false;
+
+function onOrient(e: DeviceOrientationEvent): void {
+  if (e.gamma == null) return;
+  // gamma = inclinaison gauche/droite (en portrait), en degrés
+  targetTilt = Math.max(-1, Math.min(1, e.gamma / 28));
+}
+
+function enableOrientation(): void {
+  if (orientationOn) return;
+  const D = window.DeviceOrientationEvent as unknown as {
+    requestPermission?: () => Promise<string>;
+  } | undefined;
+  if (!D) return;
+  if (typeof D.requestPermission === "function") {
+    // iOS : nécessite une permission déclenchée par un geste utilisateur
+    D.requestPermission()
+      .then((r) => {
+        if (r === "granted") {
+          window.addEventListener("deviceorientation", onOrient);
+          orientationOn = true;
+        }
+      })
+      .catch(() => {});
+  } else {
+    window.addEventListener("deviceorientation", onOrient);
+    orientationOn = true;
+  }
+}
+
+// Repli desktop : l'inclinaison suit la position de la souris dans la fenêtre.
+window.addEventListener("mousemove", (e) => {
+  if (orientationOn) return;
+  targetTilt = (e.clientX / window.innerWidth - 0.5) * 2 * 0.8;
+});
+
 // ---------- Boutons de vitesse ----------
 function bindPress(el: HTMLElement, fn: () => void): void {
   el.addEventListener("pointerdown", (e) => {
@@ -180,6 +219,7 @@ bindPress(btnFaster, () => changeSpeed(state, +1));
 // ---------- Overlay : démarrer / rejouer ----------
 overlayBtn.addEventListener("pointerdown", (e) => {
   e.preventDefault();
+  enableOrientation(); // geste utilisateur → autorise le gyroscope (iOS)
   startRun(state);
 });
 
@@ -220,7 +260,8 @@ function frame(now: number): void {
 
   update(state, dt, input);
   syncPhase();
-  render(ctx, state);
+  tilt += (targetTilt - tilt) * Math.min(1, dt * 4); // lissage de l'inclinaison
+  render(ctx, state, tilt);
   if (state.phase === "playing") updateHud();
 
   requestAnimationFrame(frame);
