@@ -54,6 +54,8 @@ const overlayBtn = document.getElementById("overlay-btn") as HTMLButtonElement;
 const btnSlower = document.getElementById("btn-slower") as HTMLButtonElement;
 const btnFaster = document.getElementById("btn-faster") as HTMLButtonElement;
 
+const touchHint = document.getElementById("touch-hint") as HTMLDivElement;
+
 // ---------- État & entrées ----------
 const state: GameState = createState();
 const input: Input = { pointerX: null, left: false, right: false };
@@ -99,11 +101,30 @@ function hideOverlay(): void {
   overlay.classList.add("hidden");
 }
 
+// ---------- Indice tactile temporaire ----------
+let hintTimer = 0;
+function showHint(): void {
+  touchHint.classList.remove("hidden");
+  hintTimer = window.setTimeout(hideHint, 3500); // disparaît tout seul
+}
+function hideHint(): void {
+  touchHint.classList.add("hidden");
+  if (hintTimer) {
+    clearTimeout(hintTimer);
+    hintTimer = 0;
+  }
+}
+
 function syncPhase(): void {
   if (state.phase === shownPhase) return;
   shownPhase = state.phase;
-  if (state.phase === "playing") hideOverlay();
-  else showOverlay(state.phase);
+  if (state.phase === "playing") {
+    hideOverlay();
+    showHint();
+  } else {
+    hideHint();
+    showOverlay(state.phase);
+  }
 }
 
 // ---------- HUD ----------
@@ -132,6 +153,7 @@ canvas.addEventListener("pointerdown", (e) => {
   pointerActive = true;
   input.pointerX = clientToLogicalX(e.clientX);
   canvas.setPointerCapture?.(e.pointerId);
+  hideHint(); // dès que le joueur touche l'écran, l'indice disparaît
 });
 canvas.addEventListener("pointermove", (e) => {
   if (!pointerActive) return;
@@ -165,9 +187,11 @@ window.addEventListener("keydown", (e) => {
   switch (e.key) {
     case "ArrowLeft":
       input.left = true;
+      hideHint();
       break;
     case "ArrowRight":
       input.right = true;
+      hideHint();
       break;
     case "ArrowUp":
       changeSpeed(state, +1);
