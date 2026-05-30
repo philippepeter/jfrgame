@@ -7,6 +7,7 @@ import {
   MAX_DEPTH,
   DANGER_START_Y,
   SWIM_SPEEDS,
+  SURFACE_Y0,
   type GameState,
   type Creature,
 } from "./game";
@@ -14,9 +15,6 @@ import {
 type Ctx = CanvasRenderingContext2D;
 
 const SNOW_RANGE = WORLD_H + 80;
-// Position d'écran de la ligne d'eau quand la profondeur atteint 0.
-// La surface descend dans le champ de vision au rythme 1:1 de la remontée.
-const SURFACE_Y0 = 235;
 
 // Champ d'étoiles bioluminescentes (parallaxe légère), généré une fois.
 const biolum = Array.from({ length: 70 }, () => ({

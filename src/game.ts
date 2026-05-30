@@ -39,6 +39,11 @@ export const DIVER_START_Y = 440;
 export const DANGER_START_Y = 600; // début du voile rouge
 export const DANGER_CRIT_Y = 792; // au-delà → dégât
 
+// Position d'écran de la ligne d'eau quand la profondeur atteint 0.
+// (partagée avec le rendu) La surface descend dans le champ de vision au
+// rythme 1:1 de la remontée.
+export const SURFACE_Y0 = 235;
+
 export const SPAWN_BASE = 2.6; // cadence d'apparition de base (s)
 export const BUBBLE_INTERVAL = 0.34;
 
@@ -87,6 +92,7 @@ export interface GameState {
 
   danger: number; // 0..1 intensité du voile rouge
   facing: 1 | -1; // orientation du plongeur
+  surfacing: boolean; // séquence de sortie : le plongeur crève la surface
 
   creatures: Creature[];
   bubbles: Bubble[];
@@ -110,6 +116,7 @@ export function createState(): GameState {
     invincible: 0,
     danger: 0,
     facing: 1,
+    surfacing: false,
     creatures: [],
     bubbles: [],
     spawnTimer: SPAWN_BASE,
@@ -131,6 +138,7 @@ export function startRun(s: GameState): void {
   s.invincible = 0;
   s.danger = 0;
   s.facing = 1;
+  s.surfacing = false;
   s.creatures = [];
   s.bubbles = [];
   s.spawnTimer = SPAWN_BASE;
@@ -290,20 +298,30 @@ export function update(s: GameState, dt: number, input: Input): void {
   }
   s.diverX = clamp(s.diverX, MARGIN_X, WORLD_W - MARGIN_X);
 
-  // --- Dérive verticale à l'écran selon (nage - défilement) ---
-  s.diverScreenY -= (ascend - SCROLL_SPEED) * dt * VERT_FACTOR;
-  s.diverScreenY = clamp(s.diverScreenY, DIVER_MIN_Y, DIVER_MAX_Y);
+  // Une fois la profondeur épuisée, on entre dans la séquence de sortie.
+  if (s.depth <= 0) s.surfacing = true;
 
-  // --- Jauges ---
-  s.o2 = Math.max(0, s.o2 - O2_DRAIN * dt);
-  s.dc = clamp(s.dc + DC_RATES[s.speedLevel] * dt, 0, 100);
+  if (s.surfacing) {
+    // Le plongeur remonte crever la surface (ligne d'eau à SURFACE_Y0).
+    const targetY = SURFACE_Y0 - 22; // émerge un peu au-dessus de la ligne
+    s.diverScreenY += (targetY - s.diverScreenY) * Math.min(1, dt * 5);
+    s.danger = 0;
+  } else {
+    // --- Dérive verticale à l'écran selon (nage - défilement) ---
+    s.diverScreenY -= (ascend - SCROLL_SPEED) * dt * VERT_FACTOR;
+    s.diverScreenY = clamp(s.diverScreenY, DIVER_MIN_Y, DIVER_MAX_Y);
 
-  // --- Zone de danger ---
-  s.danger = clamp(
-    (s.diverScreenY - DANGER_START_Y) / (DANGER_CRIT_Y - DANGER_START_Y),
-    0,
-    1,
-  );
+    // --- Jauges ---
+    s.o2 = Math.max(0, s.o2 - O2_DRAIN * dt);
+    s.dc = clamp(s.dc + DC_RATES[s.speedLevel] * dt, 0, 100);
+
+    // --- Zone de danger ---
+    s.danger = clamp(
+      (s.diverScreenY - DANGER_START_Y) / (DANGER_CRIT_Y - DANGER_START_Y),
+      0,
+      1,
+    );
+  }
 
   // --- Bulles émises par le plongeur ---
   s.bubbleTimer -= dt;
@@ -358,10 +376,13 @@ export function update(s: GameState, dt: number, input: Input): void {
     (c) => c.y < WORLD_H + c.h && c.x > -c.w - 20 && c.x < WORLD_W + c.w + 20,
   );
 
-  // --- Victoire ---
-  if (s.depth <= 0) {
-    s.phase = "win";
-    return;
+  // --- Victoire : seulement quand le plongeur a crevé la surface ---
+  if (s.surfacing) {
+    if (s.diverScreenY <= SURFACE_Y0 - 4) {
+      s.diverScreenY = SURFACE_Y0 - 4;
+      s.phase = "win";
+    }
+    return; // pas de dégât pendant la sortie
   }
 
   // --- Dégâts (ignorés pendant l'invincibilité) ---
