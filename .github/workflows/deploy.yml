@@ -4,7 +4,6 @@ on:
   push:
     branches:
       - main
-      - claude/gifted-bohr-hryTw
   workflow_dispatch:
 
 # Permissions nécessaires au déploiement Pages via Actions
