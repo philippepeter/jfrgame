@@ -34,6 +34,30 @@ Modifie les rectangles dans `public/sprites.json` (et la planche en
 conséquence). Tu peux ajouter des frames à un sprite : ajoute le rectangle
 dans `frames` et ajuste le `fps`.
 
+## Décor de fond : 3 grandes images parallaxe
+
+Le décor (falaises, corail, plantes) n'est plus généré par tuiles au runtime :
+ce sont **3 images PNG éditables** qui défilent à des vitesses différentes.
+
+- `public/bg-0.png` — plan **lointain** (défile lentement, le plus bleuté/effacé)
+- `public/bg-1.png` — plan **intermédiaire**
+- `public/bg-2.png` — plan **proche** (défile vite, le plus net/décoré)
+
+Conventions :
+- **1 px d'image = 2 px à l'écran** (agrandissement pixel art net).
+- Le **bas** de l'image = zone **profonde** (vue au départ) ; le **haut** = la
+  **surface**. Peins les coraux/plantes plutôt vers le haut, plus sombre/vide
+  vers le bas.
+- Le **centre transparent** laisse voir l'eau (dégradé), la lumière et les
+  bulles. Garde-le transparent ; dessine le décor sur les **bords** gauche/droit.
+- Les images sont **plus larges que l'écran** (marge pour l'inclinaison) — ne
+  décore pas l'extrême bord, il peut être hors champ.
+
+Tu peux **repeindre librement** ces 3 PNG dans n'importe quel éditeur (pas de
+contrainte de raccord : aucune répétition verticale). Pour changer les vitesses
+de parallaxe ou l'opacité, vois `BG_PAR` / `BG_ALPHA` / `BG_HPAR` dans
+`src/render.ts`.
+
 **Option C — régénérer depuis le script**
 L'art placeholder est défini dans `tools/gen-sprites.mjs`. Modifie les grilles
 de caractères puis :

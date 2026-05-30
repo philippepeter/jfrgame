@@ -365,28 +365,26 @@ function chunk(type, data) {
   crc.writeUInt32BE(crc32(Buffer.concat([t, data])), 0);
   return Buffer.concat([len, t, data, crc]);
 }
-
-const ihdr = Buffer.alloc(13);
-ihdr.writeUInt32BE(SHEET_W, 0);
-ihdr.writeUInt32BE(SHEET_H, 4);
-ihdr[8] = 8; // bit depth
-ihdr[9] = 6; // color type RGBA
-// 10,11,12 = 0 (compression/filter/interlace)
-
-// scanlines avec octet de filtre 0
-const raw = Buffer.alloc((SHEET_W * 4 + 1) * SHEET_H);
-for (let y = 0; y < SHEET_H; y++) {
-  raw[y * (SHEET_W * 4 + 1)] = 0;
-  for (let x = 0; x < SHEET_W * 4; x++) {
-    raw[y * (SHEET_W * 4 + 1) + 1 + x] = buf[y * SHEET_W * 4 + x];
+function encodePNG(width, height, rgba) {
+  const ihdr = Buffer.alloc(13);
+  ihdr.writeUInt32BE(width, 0);
+  ihdr.writeUInt32BE(height, 4);
+  ihdr[8] = 8; // bit depth
+  ihdr[9] = 6; // color type RGBA
+  const raw = Buffer.alloc((width * 4 + 1) * height);
+  for (let y = 0; y < height; y++) {
+    raw[y * (width * 4 + 1)] = 0; // filtre 0
+    for (let x = 0; x < width * 4; x++) raw[y * (width * 4 + 1) + 1 + x] = rgba[y * width * 4 + x];
   }
+  return Buffer.concat([
+    Buffer.from([137, 80, 78, 71, 13, 10, 26, 10]),
+    chunk("IHDR", ihdr),
+    chunk("IDAT", deflateSync(raw, { level: 9 })),
+    chunk("IEND", Buffer.alloc(0)),
+  ]);
 }
-const png = Buffer.concat([
-  Buffer.from([137, 80, 78, 71, 13, 10, 26, 10]),
-  chunk("IHDR", ihdr),
-  chunk("IDAT", deflateSync(raw, { level: 9 })),
-  chunk("IEND", Buffer.alloc(0)),
-]);
+
+const png = encodePNG(SHEET_W, SHEET_H, buf);
 
 // ---------- Atlas ----------
 const atlas = {
@@ -417,6 +415,110 @@ writeFileSync(
 );
 
 console.log(`OK -> public/sprites.png (${SHEET_W}x${SHEET_H}, ${png.length} o) + public/sprites.json`);
+
+// ---------- 3 grandes images de fond parallaxe ----------
+// Décor « falaises à terrasses + corail » cuit dans 3 PNG éditables.
+// 1 px image = BG_SCALE px logiques. Le bas de l'image = profond (vu au
+// départ), le haut = la surface. Chaque image couvre toute la remontée à sa
+// vitesse de parallaxe, donc PAS de bouclage : tu peux la repeindre librement.
+const W_LOGICAL = 390;
+const H_LOGICAL = 844;
+const MAX_DEPTH = 3100;
+const BG_SCALE = 2; // facteur d'agrandissement à l'écran
+const BG_MARGIN = 36; // marge logique pour l'inclinaison
+const NW = Math.round((W_LOGICAL + 2 * BG_MARGIN) / BG_SCALE); // largeur native
+const TILE = 16; // tuile native (= sprites de décor)
+const BAND = 2; // hauteur d'une terrasse, en tuiles
+
+const TILE_SX = {
+  rock1: 0, rock2: 16, ledge: 32, coralPink: 48,
+  coralPurple: 64, kelp: 80, anemone: 96, plant: 112,
+};
+const DECO_NAMES = ["coralPink", "coralPurple", "kelp", "anemone", "plant"];
+
+const BG_DEFS = [
+  { par: 0.25, base: 30, amp: 44, tint: [46, 86, 128, 0.5], deco: 0.25, seed: 12345 },
+  { par: 0.5, base: 28, amp: 50, tint: [26, 60, 98, 0.4], deco: 0.55, seed: 67890 },
+  { par: 0.85, base: 24, amp: 56, tint: [12, 32, 58, 0.32], deco: 0.95, seed: 24680 },
+];
+
+function bgCols(wy, base, amp, ph) {
+  const a = Math.sin(wy / 120 + ph);
+  const b = Math.sin(wy / 61 + ph * 1.7);
+  const px = base + amp * (0.5 + 0.5 * a) * 0.72 + amp * (0.5 + 0.5 * b) * 0.28;
+  return Math.max(1, Math.round(px / TILE));
+}
+
+function buildBgImage(def) {
+  const NH = Math.round((MAX_DEPTH * def.par + H_LOGICAL) / BG_SCALE);
+  const dst = new Uint8Array(NW * NH * 4);
+  function copyTile(name, dx, dy) {
+    const sx = TILE_SX[name];
+    for (let y = 0; y < TILE; y++)
+      for (let x = 0; x < TILE; x++) {
+        const si = ((64 + y) * SHEET_W + (sx + x)) * 4; // tuiles à y=64 sur la planche
+        if (buf[si + 3] === 0) continue;
+        const gx = dx + x;
+        const gy = dy + y;
+        if (gx < 0 || gx >= NW || gy < 0 || gy >= NH) continue;
+        const di = (gy * NW + gx) * 4;
+        dst[di] = buf[si];
+        dst[di + 1] = buf[si + 1];
+        dst[di + 2] = buf[si + 2];
+        dst[di + 3] = 255;
+      }
+  }
+  const rows = Math.ceil(NH / TILE);
+  function side(dir, ph, sd) {
+    const r = rng(sd);
+    const tileDX = (c) => (dir === 1 ? c * TILE : NW - (c + 1) * TILE);
+    const pick = () => DECO_NAMES[(r() * DECO_NAMES.length) | 0];
+    let prevW = bgCols(0, def.base, def.amp, ph);
+    for (let b = 0; b * BAND < rows; b++) {
+      const topRow = b * BAND;
+      const w = bgCols(topRow * TILE, def.base, def.amp, ph);
+      for (let rr = 0; rr < BAND; rr++) {
+        const row = topRow + rr;
+        for (let c = 0; c < w; c++) {
+          const lit = rr === 0 && c >= prevW;
+          const h = ((c * 73856093) ^ (row * 19349663) ^ sd) >>> 0;
+          const name = lit ? "ledge" : h % 5 === 0 ? "rock2" : "rock1";
+          copyTile(name, tileDX(c), row * TILE);
+        }
+      }
+      if (w > prevW) {
+        for (let c = prevW; c < w; c++)
+          if (r() < def.deco) copyTile(pick(), tileDX(c), (topRow - 1) * TILE);
+      }
+      if (r() < def.deco) copyTile(pick(), tileDX(w - 1), (topRow - 1) * TILE);
+      if (r() < def.deco * 0.6) {
+        const fr = topRow + 1 + ((r() * (BAND - 1)) | 0);
+        copyTile(pick(), tileDX(w - 1), fr * TILE);
+      }
+      prevW = w;
+    }
+  }
+  side(1, 0.6, def.seed);
+  side(-1, 2.3, def.seed ^ 0x9e3779b9);
+  // teinte de profondeur (perspective atmosphérique) sur les pixels dessinés
+  const [tr, tg, tb, ta] = def.tint;
+  for (let p = 0; p < NW * NH; p++) {
+    const i = p * 4;
+    if (dst[i + 3] > 0) {
+      dst[i] = dst[i] * (1 - ta) + tr * ta;
+      dst[i + 1] = dst[i + 1] * (1 - ta) + tg * ta;
+      dst[i + 2] = dst[i + 2] * (1 - ta) + tb * ta;
+    }
+  }
+  return { dst, NH };
+}
+
+for (let i = 0; i < BG_DEFS.length; i++) {
+  const { dst, NH } = buildBgImage(BG_DEFS[i]);
+  const out = encodePNG(NW, NH, dst);
+  writeFileSync(join(ROOT, "public", `bg-${i}.png`), out);
+  console.log(`OK -> public/bg-${i}.png (${NW}x${NH}, ${out.length} o, par=${BG_DEFS[i].par})`);
+}
 
 // Aperçu agrandi (nearest-neighbor) pour inspection : GEN_PREVIEW=/chemin.png
 if (process.env.GEN_PREVIEW) {

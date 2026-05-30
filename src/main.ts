@@ -13,7 +13,7 @@ import {
   type Input,
   type Phase,
 } from "./game";
-import { render } from "./render";
+import { render, loadBackgrounds } from "./render";
 import { loadSprites } from "./sprites";
 
 // ---------- Canvas & mise à l'échelle ----------
@@ -274,6 +274,6 @@ function start(): void {
   requestAnimationFrame(frame);
 }
 
-// Précharge la planche de sprites, puis lance la boucle (démarre quand même
-// en cas d'échec de chargement : le monde reste rendu, sprites manquants).
-loadSprites().then(start, start);
+// Précharge la planche de sprites et les images de fond, puis lance la boucle
+// (démarre quand même en cas d'échec : le monde reste rendu).
+Promise.all([loadSprites(), loadBackgrounds()]).then(start, start);

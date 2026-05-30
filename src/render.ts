@@ -11,7 +11,7 @@ import {
   type GameState,
   type Creature,
 } from "./game";
-import { drawSprite, frameFor, spritesReady } from "./sprites";
+import { drawSprite, frameFor } from "./sprites";
 
 type Ctx = CanvasRenderingContext2D;
 
