@@ -189,8 +189,8 @@ const sharkB = [
 ];
 
 // ---------- Composition de la planche ----------
-const SHEET_W = 64;
-const SHEET_H = 96; // 64 (créatures) + 32 (tuiles de décor)
+const SHEET_W = 128;
+const SHEET_H = 80; // 64 (créatures) + 16 (tuiles de décor)
 const buf = new Uint8Array(SHEET_W * SHEET_H * 4); // RGBA, transparent par défaut
 
 function blit(art, ox, oy, w, h) {
@@ -232,21 +232,19 @@ function rng(seed) {
   let s = seed >>> 0;
   return () => (s = (s * 1664525 + 1013904223) >>> 0) / 4294967296;
 }
+const ROCK = [78, 92, 110];
+const ROCK_D = [52, 64, 80];
+const ROCK_L = [108, 124, 144];
 function paintRock(ox, oy, seed) {
-  const base = [70, 84, 100];
-  const dark = [48, 60, 74];
-  const crack = [38, 48, 60];
-  const light = [99, 116, 136];
+  const crack = [40, 50, 64];
   const r = rng(seed);
   for (let y = 0; y < 16; y++)
-    for (let x = 0; x < 16; x++) setPx(ox + x, oy + y, base);
-  // mouchetures à l'intérieur (bords laissés uniformes pour le raccord)
+    for (let x = 0; x < 16; x++) setPx(ox + x, oy + y, ROCK);
   for (let n = 0; n < 18; n++) {
     const x = 2 + ((r() * 12) | 0);
     const y = 2 + ((r() * 12) | 0);
-    setPx(ox + x, oy + y, r() < 0.5 ? dark : light);
+    setPx(ox + x, oy + y, r() < 0.5 ? ROCK_D : ROCK_L);
   }
-  // quelques fissures courtes
   for (let n = 0; n < 3; n++) {
     let x = 3 + ((r() * 10) | 0);
     let y = 3 + ((r() * 10) | 0);
@@ -257,8 +255,98 @@ function paintRock(ox, oy, seed) {
     }
   }
 }
+
+// Palier éclairé : roche avec sa surface supérieure ensoleillée + sable.
+function paintLedge(ox, oy, seed) {
+  const top = [156, 172, 190];
+  const lit = [120, 138, 158];
+  const sand = [156, 146, 120];
+  const r = rng(seed);
+  for (let y = 0; y < 16; y++)
+    for (let x = 0; x < 16; x++) {
+      let c = ROCK;
+      if (y === 0) c = top;
+      else if (y <= 2) c = lit;
+      setPx(ox + x, oy + y, c);
+    }
+  for (let n = 0; n < 7; n++) setPx(ox + 1 + ((r() * 14) | 0), oy + 1 + ((r() * 2) | 0), sand);
+  for (let n = 0; n < 10; n++) setPx(ox + 2 + ((r() * 12) | 0), oy + 4 + ((r() * 10) | 0), r() < 0.5 ? ROCK_D : ROCK_L);
+}
+
+// Corail en éventail (transparent), couleur paramétrable.
+function paintCoral(ox, oy, seed, col, dark, hi) {
+  const r = rng(seed);
+  const n = 4 + ((r() * 3) | 0);
+  for (let b = 0; b < n; b++) {
+    let x = 3 + ((b * 12) / n | 0) + ((r() * 2) | 0);
+    let y = 15;
+    const len = 8 + ((r() * 6) | 0);
+    for (let k = 0; k < len; k++) {
+      if (y < 0) break;
+      setPx(ox + x, oy + y, k >= len - 2 ? hi : col);
+      if (r() < 0.35) setPx(ox + Math.min(15, x + 1), oy + y, dark);
+      y -= 1;
+      x += r() < 0.5 ? (r() < 0.5 ? -1 : 0) : 1;
+      x = Math.min(14, Math.max(1, x));
+    }
+  }
+}
+
+// Algues (transparent) : brins verts ondulants.
+function paintKelp(ox, oy, seed) {
+  const green = [86, 176, 96];
+  const dark = [52, 132, 66];
+  const r = rng(seed);
+  for (let b = 0; b < 3; b++) {
+    let x = 4 + b * 4;
+    for (let y = 15; y >= 1; y--) {
+      const wig = Math.sin((15 - y) * 0.6 + b) * 1.6;
+      const xx = Math.min(15, Math.max(0, Math.round(x + wig)));
+      setPx(ox + xx, oy + y, y % 3 === 0 ? dark : green);
+    }
+  }
+  void r;
+}
+
+// Anémone (transparent) : dôme avec tentacules colorés.
+function paintAnemone(ox, oy, seed) {
+  const body = [86, 206, 200];
+  const tip = [255, 158, 120];
+  const r = rng(seed);
+  for (let x = 4; x <= 11; x++) {
+    setPx(ox + x, oy + 14, body);
+    setPx(ox + x, oy + 13, body);
+  }
+  for (let t = 0; t < 6; t++) {
+    const x = 4 + t + ((r() * 1) | 0);
+    const h = 4 + ((r() * 4) | 0);
+    for (let k = 0; k < h; k++) setPx(ox + x, oy + 13 - k, k === h - 1 ? tip : body);
+  }
+}
+
+// Petit buisson de plantes (transparent).
+function paintPlant(ox, oy, seed) {
+  const green = [120, 198, 110];
+  const dark = [78, 158, 84];
+  const r = rng(seed);
+  for (let t = 0; t < 5; t++) {
+    let x = 3 + t * 2;
+    const h = 4 + ((r() * 4) | 0);
+    for (let k = 0; k < h; k++) {
+      const xx = Math.min(15, Math.max(0, x + (r() < 0.5 ? 0 : (r() < 0.5 ? -1 : 1))));
+      setPx(ox + xx, oy + 15 - k, k % 2 ? dark : green);
+    }
+  }
+}
+
 paintRock(0, 64, 1337);
 paintRock(16, 64, 8675309);
+paintLedge(32, 64, 4242);
+paintCoral(48, 64, 9001, [232, 120, 170], [196, 80, 140], [255, 176, 210]); // rose
+paintCoral(64, 64, 7777, [150, 112, 222], [110, 70, 180], [196, 168, 255]); // violet
+paintKelp(80, 64, 555);
+paintAnemone(96, 64, 33);
+paintPlant(112, 64, 8181);
 
 // ---------- Encodage PNG ----------
 function crc32(bytes) {
@@ -312,6 +400,12 @@ const atlas = {
     shark: { frames: [[0, 48, 32, 16], [32, 48, 32, 16]], fps: 6 },
     rock1: { frames: [[0, 64, 16, 16]], fps: 1 },
     rock2: { frames: [[16, 64, 16, 16]], fps: 1 },
+    ledge: { frames: [[32, 64, 16, 16]], fps: 1 },
+    coralPink: { frames: [[48, 64, 16, 16]], fps: 1 },
+    coralPurple: { frames: [[64, 64, 16, 16]], fps: 1 },
+    kelp: { frames: [[80, 64, 16, 16]], fps: 1 },
+    anemone: { frames: [[96, 64, 16, 16]], fps: 1 },
+    plant: { frames: [[112, 64, 16, 16]], fps: 1 },
   },
 };
 

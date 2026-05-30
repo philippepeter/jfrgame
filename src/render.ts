@@ -39,10 +39,14 @@ const snow = Array.from({ length: 60 }, () => ({
 
 const mod = (v: number, m: number) => ((v % m) + m) % m;
 
-// ---------- Décor parallaxe : 3 couches de murs rocheux en tuiles ----------
+// ---------- Décor parallaxe : 3 falaises à terrasses en tuiles ----------
 const BG_PATTERN_H = 936; // hauteur du motif (multiple de la tuile, périodique)
 const BG_TILE = 26; // taille d'une tuile à l'écran
-const BG_MARGIN = 30; // débord latéral pour le décalage d'inclinaison
+const BG_MARGIN = 34; // débord latéral pour le décalage d'inclinaison
+const BG_ROWS = BG_PATTERN_H / BG_TILE; // 36
+const BAND = 3; // hauteur d'une terrasse, en tuiles
+
+const DECOS = ["coralPink", "coralPurple", "kelp", "anemone", "plant"];
 
 interface BgLayer {
   canvas: HTMLCanvasElement;
@@ -52,26 +56,82 @@ interface BgLayer {
 }
 let bgLayers: BgLayer[] | null = null;
 
-// Largeur du mur (en px) à une hauteur de motif donnée : somme de sinus
-// périodiques sur BG_PATTERN_H → raccord sans couture lors du bouclage.
-function wallWidth(wy: number, base: number, amp: number, phase: number): number {
-  const a = Math.sin((2 * Math.PI * 1 * wy) / BG_PATTERN_H + phase);
-  const b = Math.sin((2 * Math.PI * 3 * wy) / BG_PATTERN_H + phase * 1.7);
-  const c = Math.sin((2 * Math.PI * 5 * wy) / BG_PATTERN_H + phase * 0.5);
-  return (
-    base +
-    amp * (0.5 + 0.5 * a) * 0.6 +
-    amp * (0.5 + 0.5 * b) * 0.3 +
-    amp * (0.5 + 0.5 * c) * 0.1
-  );
+function rng(seed: number): () => number {
+  let s = seed >>> 0;
+  return () => (s = (s * 1664525 + 1013904223) >>> 0) / 4294967296;
 }
 
-function buildWall(
+// Largeur de la falaise (en tuiles) au sommet d'une terrasse : somme de sinus
+// périodiques sur le motif → raccord sans couture lors du bouclage.
+function cliffTiles(wy: number, base: number, amp: number, ph: number): number {
+  const a = Math.sin((2 * Math.PI * wy) / BG_PATTERN_H + ph);
+  const b = Math.sin((2 * Math.PI * 2 * wy) / BG_PATTERN_H + ph * 1.7);
+  const px = base + amp * (0.5 + 0.5 * a) * 0.72 + amp * (0.5 + 0.5 * b) * 0.28;
+  return Math.max(1, Math.round(px / BG_TILE));
+}
+
+// Dessine une falaise terrassée le long d'un bord et la décore.
+// `dir` = +1 (bord gauche, x croît vers le centre) ou -1 (bord droit).
+function buildCliffSide(
+  oc: CanvasRenderingContext2D,
+  W: number,
+  dir: 1 | -1,
   base: number,
   amp: number,
-  seedL: number,
-  seedR: number,
+  phase: number,
+  decoDensity: number,
+  seed: number,
+): void {
+  const r = rng(seed);
+  const edge = dir === 1 ? 0 : W; // x du bord
+  const tileX = (col: number) => edge + dir * (col * BG_TILE + BG_TILE / 2);
+  const pick = () => DECOS[(r() * DECOS.length) | 0];
+
+  let prevW = cliffTiles(0, base, amp, phase);
+  for (let b = 0; b * BAND < BG_ROWS; b++) {
+    const topRow = b * BAND;
+    const w = cliffTiles(topRow * BG_TILE, base, amp, phase);
+
+    for (let rr = 0; rr < BAND; rr++) {
+      const row = topRow + rr;
+      const y = row * BG_TILE + BG_TILE / 2;
+      for (let c = 0; c < w; c++) {
+        // sommet exposé d'une terrasse qui dépasse → tuile éclairée
+        const lit = rr === 0 && c >= prevW;
+        // variante de roche pseudo-aléatoire (pas de damier régulier)
+        const h = ((c * 73856093) ^ (row * 19349663) ^ seed) >>> 0;
+        const name = lit ? "ledge" : h % 5 === 0 ? "rock2" : "rock1";
+        drawSprite(oc, name, 0, tileX(c), y, BG_TILE, BG_TILE);
+      }
+    }
+
+    // décorations sur le rebord exposé (corail/algues/anémones)
+    if (w > prevW) {
+      const topY = topRow * BG_TILE - BG_TILE / 2; // une tuile au-dessus du rebord
+      for (let c = prevW; c < w; c++) {
+        if (r() < decoDensity) drawSprite(oc, pick(), 0, tileX(c), topY, BG_TILE, BG_TILE);
+      }
+    }
+    // vie sur la lèvre intérieure (haut) + sur la face (algues/corail qui pendent)
+    if (r() < decoDensity) {
+      drawSprite(oc, pick(), 0, tileX(w - 1), topRow * BG_TILE - BG_TILE / 2, BG_TILE, BG_TILE);
+    }
+    if (r() < decoDensity * 0.6) {
+      const faceRow = topRow + 1 + ((r() * (BAND - 1)) | 0);
+      drawSprite(oc, pick(), 0, tileX(w - 1), faceRow * BG_TILE + BG_TILE / 2, BG_TILE, BG_TILE);
+    }
+    prevW = w;
+  }
+}
+
+function buildCliff(
+  base: number,
+  amp: number,
+  phL: number,
+  phR: number,
   tint: string,
+  decoDensity: number,
+  seed: number,
 ): HTMLCanvasElement {
   const W = WORLD_W + 2 * BG_MARGIN;
   const cv = document.createElement("canvas");
@@ -80,21 +140,10 @@ function buildWall(
   const oc = cv.getContext("2d")!;
   oc.imageSmoothingEnabled = false;
 
-  for (let y = 0; y < BG_PATTERN_H; y += BG_TILE) {
-    const row = y / BG_TILE;
-    const colsL = Math.round(wallWidth(y, base, amp, seedL) / BG_TILE);
-    for (let c = 0; c < colsL; c++) {
-      const v = (c + row) % 2 === 0 ? "rock1" : "rock2";
-      drawSprite(oc, v, 0, c * BG_TILE + BG_TILE / 2, y + BG_TILE / 2, BG_TILE, BG_TILE);
-    }
-    const colsR = Math.round(wallWidth(y, base, amp, seedR) / BG_TILE);
-    for (let c = 0; c < colsR; c++) {
-      const v = (c + row) % 2 === 0 ? "rock2" : "rock1";
-      drawSprite(oc, v, 0, W - (c * BG_TILE + BG_TILE / 2), y + BG_TILE / 2, BG_TILE, BG_TILE);
-    }
-  }
+  buildCliffSide(oc, W, 1, base, amp, phL, decoDensity, seed);
+  buildCliffSide(oc, W, -1, base, amp, phR, decoDensity, seed ^ 0x9e3779b9);
 
-  // Teinte de profondeur (perspective atmosphérique) appliquée aux pixels dessinés.
+  // Teinte de profondeur (perspective atmosphérique) sur les pixels dessinés.
   oc.globalCompositeOperation = "source-atop";
   oc.fillStyle = tint;
   oc.fillRect(0, 0, W, BG_PATTERN_H);
@@ -104,12 +153,12 @@ function buildWall(
 
 function buildBgLayers(): void {
   bgLayers = [
-    // lointain : large, peu contrasté, défile lentement, bouge peu à l'inclinaison
-    { canvas: buildWall(34, 30, 0.6, 2.3, "rgba(26,56,96,0.72)"), par: 0.22, hpar: 8, alpha: 0.5 },
+    // lointain : massif large, bleuté/effacé, peu décoré, défile lentement
+    { canvas: buildCliff(70, 84, 0.6, 2.3, "rgba(46,86,128,0.52)", 0.25, 12345), par: 0.22, hpar: 9, alpha: 0.62 },
     // intermédiaire
-    { canvas: buildWall(30, 38, 4.1, 5.7, "rgba(14,38,70,0.6)"), par: 0.45, hpar: 16, alpha: 0.72 },
-    // proche : sombre, défile vite, bouge le plus à l'inclinaison
-    { canvas: buildWall(26, 46, 1.2, 3.9, "rgba(5,16,34,0.5)"), par: 0.82, hpar: 26, alpha: 0.95 },
+    { canvas: buildCliff(60, 96, 4.1, 5.7, "rgba(26,60,98,0.4)", 0.55, 67890), par: 0.46, hpar: 17, alpha: 0.82 },
+    // proche : net, très décoré, défile vite, bouge le plus à l'inclinaison
+    { canvas: buildCliff(50, 108, 1.2, 3.9, "rgba(12,32,58,0.32)", 0.95, 24680), par: 0.82, hpar: 27, alpha: 0.97 },
   ];
 }
 
@@ -127,6 +176,50 @@ function drawBackgroundLayers(ctx: Ctx, s: GameState, tilt: number): void {
     ctx.drawImage(L.canvas, dx, off - BG_PATTERN_H);
     ctx.drawImage(L.canvas, dx, off);
   }
+  ctx.globalAlpha = 1;
+}
+
+// ---------- Bulles d'ambiance + rayons de lumière ----------
+const ambient = Array.from({ length: 26 }, () => ({
+  x: Math.random() * WORLD_W,
+  y: Math.random() * WORLD_H,
+  r: 1 + Math.random() * 2.5,
+  spd: 14 + Math.random() * 26,
+  amp: 4 + Math.random() * 8,
+  ph: Math.random() * Math.PI * 2,
+}));
+
+function drawAmbientBubbles(ctx: Ctx, t: number): void {
+  ctx.fillStyle = "#dff6ff";
+  for (const b of ambient) {
+    const y = mod(b.y - t * b.spd, WORLD_H + 20) - 10;
+    const x = b.x + Math.sin(t * 0.8 + b.ph) * b.amp;
+    ctx.globalAlpha = 0.16;
+    ctx.beginPath();
+    ctx.arc(x, y, b.r, 0, Math.PI * 2);
+    ctx.fill();
+  }
+  ctx.globalAlpha = 1;
+}
+
+function drawLightShafts(ctx: Ctx, s: GameState, t: number): void {
+  const df = s.depth / MAX_DEPTH;
+  const intensity = 0.06 + 0.16 * Math.max(0, 1 - df * 1.4); // plus fort près de la surface
+  ctx.save();
+  ctx.globalCompositeOperation = "lighter";
+  for (let i = 0; i < 5; i++) {
+    const cx = ((i + 0.5) / 5) * WORLD_W + Math.sin(t * 0.25 + i * 1.7) * 26;
+    ctx.globalAlpha = intensity * (0.6 + 0.4 * Math.sin(t * 0.5 + i));
+    ctx.fillStyle = "#bfeaff";
+    ctx.beginPath();
+    ctx.moveTo(cx - 16, 0);
+    ctx.lineTo(cx + 16, 0);
+    ctx.lineTo(cx + 70, WORLD_H);
+    ctx.lineTo(cx + 38, WORLD_H);
+    ctx.closePath();
+    ctx.fill();
+  }
+  ctx.restore();
   ctx.globalAlpha = 1;
 }
 
@@ -322,6 +415,8 @@ export function render(ctx: Ctx, s: GameState, tilt = 0): void {
   const t = s.time;
   background(ctx, s, t);
   drawBackgroundLayers(ctx, s, tilt);
+  drawLightShafts(ctx, s, t);
+  drawAmbientBubbles(ctx, t);
   marineSnow(ctx, s);
 
   for (const c of s.creatures) drawCreature(ctx, c, t);
