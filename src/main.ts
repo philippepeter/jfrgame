@@ -14,6 +14,7 @@ import {
   type Phase,
 } from "./game";
 import { render } from "./render";
+import { loadSprites } from "./sprites";
 
 // ---------- Canvas & mise à l'échelle ----------
 const canvas = document.getElementById("game") as HTMLCanvasElement;
@@ -225,7 +226,13 @@ function frame(now: number): void {
   requestAnimationFrame(frame);
 }
 
-// Affiche l'overlay de départ et lance la boucle.
-syncPhase();
-updateHud();
-requestAnimationFrame(frame);
+function start(): void {
+  syncPhase();
+  updateHud();
+  last = performance.now();
+  requestAnimationFrame(frame);
+}
+
+// Précharge la planche de sprites, puis lance la boucle (démarre quand même
+// en cas d'échec de chargement : le monde reste rendu, sprites manquants).
+loadSprites().then(start, start);

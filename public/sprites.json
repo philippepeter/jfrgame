@@ -1,0 +1,75 @@
+{
+  "image": "sprites.png",
+  "grid": 16,
+  "note": "Rectangles [x,y,w,h] en pixels. Redessine sprites.png en gardant ces rects, sans toucher au code.",
+  "sprites": {
+    "diver": {
+      "frames": [
+        [
+          0,
+          0,
+          16,
+          16
+        ],
+        [
+          16,
+          0,
+          16,
+          16
+        ]
+      ],
+      "fps": 8
+    },
+    "jelly": {
+      "frames": [
+        [
+          0,
+          16,
+          16,
+          16
+        ],
+        [
+          16,
+          16,
+          16,
+          16
+        ]
+      ],
+      "fps": 3
+    },
+    "octopus": {
+      "frames": [
+        [
+          0,
+          32,
+          16,
+          16
+        ],
+        [
+          16,
+          32,
+          16,
+          16
+        ]
+      ],
+      "fps": 4
+    },
+    "shark": {
+      "frames": [
+        [
+          0,
+          48,
+          32,
+          16
+        ],
+        [
+          32,
+          48,
+          32,
+          16
+        ]
+      ],
+      "fps": 6
+    }
+  }
+}

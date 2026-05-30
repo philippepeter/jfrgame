@@ -11,6 +11,7 @@ import {
   type GameState,
   type Creature,
 } from "./game";
+import { drawSprite, frameFor } from "./sprites";
 
 type Ctx = CanvasRenderingContext2D;
 
@@ -196,193 +197,25 @@ function drawBubbles(ctx: Ctx, s: GameState): void {
   ctx.globalAlpha = 1;
 }
 
-function drawCreature(ctx: Ctx, c: Creature): void {
-  ctx.save();
-  ctx.translate(c.x, c.y);
+function drawCreature(ctx: Ctx, c: Creature, t: number): void {
+  const name = c.type; // "jelly" | "octopus" | "shark" → noms de l'atlas
+  // horloge d'animation propre à chaque créature (variété)
+  const frame = frameFor(name, t + c.anim * 0.25);
 
-  if (c.type === "jelly") {
-    drawJelly(ctx, c);
-  } else if (c.type === "octopus") {
-    drawOctopus(ctx, c);
+  if (c.type === "shark") {
+    const dw = c.w * 1.3;
+    drawSprite(ctx, name, frame, c.x, c.y, dw, dw * 0.5, c.dir < 0);
   } else {
-    if (c.dir < 0) ctx.scale(-1, 1);
-    drawShark(ctx, c);
+    const dw = c.w * 1.4; // méduse / pieuvre : carré
+    drawSprite(ctx, name, frame, c.x, c.y, dw, dw);
   }
-  ctx.restore();
-}
-
-function drawJelly(ctx: Ctx, c: Creature): void {
-  const w = c.w;
-  const pulse = 1 + Math.sin(c.anim) * 0.08;
-  // ombrelle
-  ctx.fillStyle = "rgba(190,120,230,0.85)";
-  ctx.beginPath();
-  ctx.ellipse(0, -c.h * 0.2, (w / 2) * pulse, c.h * 0.35, 0, Math.PI, 0);
-  ctx.fill();
-  ctx.fillStyle = "rgba(150,90,200,0.9)";
-  ctx.beginPath();
-  ctx.ellipse(0, -c.h * 0.2, (w / 2) * pulse, c.h * 0.18, 0, 0, Math.PI * 2);
-  ctx.fill();
-  // tentacules (2 frames d'oscillation)
-  ctx.strokeStyle = "rgba(200,150,240,0.7)";
-  ctx.lineWidth = 2;
-  const tn = 5;
-  for (let i = 0; i < tn; i++) {
-    const tx = -w / 2 + (i / (tn - 1)) * w;
-    const wig = Math.sin(c.anim * 1.3 + i) * 5;
-    ctx.beginPath();
-    ctx.moveTo(tx * 0.6, -c.h * 0.18);
-    ctx.quadraticCurveTo(tx * 0.6 + wig, c.h * 0.2, tx * 0.6 + wig * 1.4, c.h * 0.55);
-    ctx.stroke();
-  }
-  // halo lumineux
-  ctx.globalAlpha = 0.25;
-  ctx.fillStyle = "#d9a8ff";
-  ctx.beginPath();
-  ctx.arc(0, -c.h * 0.2, w * 0.6, 0, Math.PI * 2);
-  ctx.fill();
-  ctx.globalAlpha = 1;
-}
-
-function drawOctopus(ctx: Ctx, c: Creature): void {
-  const w = c.w;
-  ctx.fillStyle = "#e8633a";
-  // tête bulbeuse
-  ctx.beginPath();
-  ctx.ellipse(0, -c.h * 0.12, w * 0.42, c.h * 0.46, 0, 0, Math.PI * 2);
-  ctx.fill();
-  // tentacules ondulantes
-  ctx.strokeStyle = "#d2522c";
-  ctx.lineWidth = 4;
-  ctx.lineCap = "round";
-  const tn = 6;
-  for (let i = 0; i < tn; i++) {
-    const tx = -w * 0.32 + (i / (tn - 1)) * w * 0.64;
-    const wig = Math.sin(c.anim + i * 0.8) * 6;
-    ctx.beginPath();
-    ctx.moveTo(tx, c.h * 0.2);
-    ctx.quadraticCurveTo(tx + wig, c.h * 0.42, tx + wig, c.h * 0.6);
-    ctx.stroke();
-  }
-  // yeux
-  ctx.fillStyle = "#fff";
-  ctx.beginPath();
-  ctx.arc(-w * 0.14, -c.h * 0.18, 4.5, 0, Math.PI * 2);
-  ctx.arc(w * 0.14, -c.h * 0.18, 4.5, 0, Math.PI * 2);
-  ctx.fill();
-  ctx.fillStyle = "#1a1a1a";
-  ctx.beginPath();
-  ctx.arc(-w * 0.14, -c.h * 0.18, 2, 0, Math.PI * 2);
-  ctx.arc(w * 0.14, -c.h * 0.18, 2, 0, Math.PI * 2);
-  ctx.fill();
-}
-
-function drawShark(ctx: Ctx, c: Creature): void {
-  const w = c.w;
-  const h = c.h;
-  const tail = Math.sin(c.anim * 1.6) * 6;
-  // corps
-  ctx.fillStyle = "#5b738c";
-  ctx.beginPath();
-  ctx.moveTo(w * 0.5, 0);
-  ctx.quadraticCurveTo(0, -h * 0.6, -w * 0.45, -h * 0.1 + tail * 0.3);
-  ctx.quadraticCurveTo(-w * 0.6, 0 + tail, -w * 0.45, h * 0.1 + tail * 0.3);
-  ctx.quadraticCurveTo(0, h * 0.6, w * 0.5, 0);
-  ctx.fill();
-  // ventre clair
-  ctx.fillStyle = "#9fb4c6";
-  ctx.beginPath();
-  ctx.moveTo(w * 0.45, h * 0.05);
-  ctx.quadraticCurveTo(0, h * 0.5, -w * 0.35, h * 0.08);
-  ctx.quadraticCurveTo(0, h * 0.22, w * 0.45, h * 0.05);
-  ctx.fill();
-  // aileron dorsal
-  ctx.fillStyle = "#4a6076";
-  ctx.beginPath();
-  ctx.moveTo(w * 0.02, -h * 0.45);
-  ctx.lineTo(-w * 0.18, -h * 0.45);
-  ctx.lineTo(-w * 0.06, -h * 0.05);
-  ctx.fill();
-  // queue
-  ctx.beginPath();
-  ctx.moveTo(-w * 0.45, -h * 0.1 + tail * 0.3);
-  ctx.lineTo(-w * 0.62, -h * 0.5 + tail);
-  ctx.lineTo(-w * 0.62, h * 0.5 + tail);
-  ctx.lineTo(-w * 0.45, h * 0.1 + tail * 0.3);
-  ctx.fill();
-  // œil + gueule
-  ctx.fillStyle = "#fff";
-  ctx.beginPath();
-  ctx.arc(w * 0.3, -h * 0.08, 3, 0, Math.PI * 2);
-  ctx.fill();
-  ctx.fillStyle = "#10171f";
-  ctx.beginPath();
-  ctx.arc(w * 0.3, -h * 0.08, 1.5, 0, Math.PI * 2);
-  ctx.fill();
-  ctx.strokeStyle = "#33424f";
-  ctx.lineWidth = 1.5;
-  ctx.beginPath();
-  ctx.moveTo(w * 0.5, h * 0.02);
-  ctx.lineTo(w * 0.28, h * 0.12);
-  ctx.stroke();
 }
 
 function drawDiver(ctx: Ctx, s: GameState, t: number): void {
   // clignotement pendant l'invincibilité
   if (s.invincible > 0 && Math.floor(t * 12) % 2 === 0) return;
-
-  ctx.save();
-  ctx.translate(s.diverX, s.diverScreenY);
-  if (s.facing < 0) ctx.scale(-1, 1);
-
-  const kick = Math.sin(t * 10) * 0.5;
-
-  // palmes
-  ctx.fillStyle = "#0c2a4a";
-  ctx.beginPath();
-  ctx.ellipse(-16, 16 + kick * 6, 10, 5, -0.5, 0, Math.PI * 2);
-  ctx.fill();
-  ctx.beginPath();
-  ctx.ellipse(-16, 24 - kick * 6, 10, 5, -0.8, 0, Math.PI * 2);
-  ctx.fill();
-
-  // bouteille d'O₂ (orange)
-  ctx.fillStyle = "#f08a25";
-  ctx.beginPath();
-  ctx.roundRect(-14, -16, 9, 26, 4);
-  ctx.fill();
-
-  // corps / combinaison (bleu)
-  ctx.fillStyle = "#1f6fd1";
-  ctx.beginPath();
-  ctx.ellipse(0, 2, 13, 17, 0, 0, Math.PI * 2);
-  ctx.fill();
-
-  // bras
-  ctx.strokeStyle = "#1f6fd1";
-  ctx.lineWidth = 6;
-  ctx.lineCap = "round";
-  ctx.beginPath();
-  ctx.moveTo(6, -2);
-  ctx.lineTo(16, 4 + kick * 3);
-  ctx.stroke();
-
-  // tête / casque
-  ctx.fillStyle = "#123a66";
-  ctx.beginPath();
-  ctx.arc(7, -16, 11, 0, Math.PI * 2);
-  ctx.fill();
-  // visière (jaune)
-  ctx.fillStyle = "#ffd23f";
-  ctx.beginPath();
-  ctx.ellipse(11, -16, 6, 7, 0, 0, Math.PI * 2);
-  ctx.fill();
-  ctx.fillStyle = "rgba(255,255,255,0.5)";
-  ctx.beginPath();
-  ctx.ellipse(12, -18, 2.4, 3, 0, 0, Math.PI * 2);
-  ctx.fill();
-
-  ctx.restore();
+  const frame = frameFor("diver", t);
+  drawSprite(ctx, "diver", frame, s.diverX, s.diverScreenY, 40, 40, s.facing < 0);
 }
 
 function dangerVeil(ctx: Ctx, s: GameState): void {
@@ -399,7 +232,7 @@ export function render(ctx: Ctx, s: GameState): void {
   background(ctx, s, t);
   marineSnow(ctx, s);
 
-  for (const c of s.creatures) drawCreature(ctx, c);
+  for (const c of s.creatures) drawCreature(ctx, c, t);
 
   drawSurface(ctx, s, t);
   drawBubbles(ctx, s);
