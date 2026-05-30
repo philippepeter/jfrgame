@@ -39,23 +39,25 @@ const snow = Array.from({ length: 60 }, () => ({
 
 const mod = (v: number, m: number) => ((v % m) + m) % m;
 
-// ---------- Décor parallaxe : 3 grandes images de fond éditables ----------
-// public/bg-0.png (lointain) → bg-2.png (proche). Le bas de chaque image est
-// la zone profonde (vue au départ), le haut la surface. Chaque image couvre
-// toute la remontée à sa vitesse de parallaxe (pas de bouclage) : on peut les
-// repeindre librement. Régénérables via tools/gen-sprites.mjs.
+// ---------- Décor parallaxe : water-bg + 3 grandes images de fond éditables ----------
+// public/water-bg.png (toile de fond océanique la plus lointaine), puis
+// public/bg-0.png → bg-2.png (du plus lointain au plus proche). Le bas de chaque
+// image est la zone profonde (vue au départ), le haut la surface. Chaque image
+// couvre toute la remontée à sa vitesse de parallaxe (pas de bouclage) : on peut
+// les repeindre librement. Régénérables via tools/gen-sprites.mjs.
 const BG_SCALE = 2; // 1 px image = 2 px logiques (pixel art net agrandi)
 const BG_MARGIN = 36; // débord latéral pour le décalage d'inclinaison
-const BG_PAR = [0.25, 0.5, 0.85]; // vitesses de défilement (profondeur)
-const BG_HPAR = [9, 17, 27]; // amplitude du décalage à l'inclinaison
-const BG_ALPHA = [0.8, 0.92, 1];
-const bgImgs: (HTMLImageElement | null)[] = [null, null, null];
+const BG_PAR = [0.1, 0.25, 0.5, 0.85]; // vitesses de défilement (profondeur)
+const BG_HPAR = [4, 9, 17, 27]; // amplitude du décalage à l'inclinaison
+const BG_ALPHA = [1, 0.8, 0.92, 1];
+const BG_SRCS = ["water-bg.png", "bg-0.png", "bg-1.png", "bg-2.png"];
+const bgImgs: (HTMLImageElement | null)[] = [null, null, null, null];
 
 export async function loadBackgrounds(): Promise<void> {
   const base = import.meta.env.BASE_URL;
   await Promise.all(
-    [0, 1, 2].map(
-      (i) =>
+    BG_SRCS.map(
+      (src, i) =>
         new Promise<void>((resolve) => {
           const im = new Image();
           im.onload = () => {
@@ -63,7 +65,7 @@ export async function loadBackgrounds(): Promise<void> {
             resolve();
           };
           im.onerror = () => resolve();
-          im.src = `${base}bg-${i}.png`;
+          im.src = `${base}${src}`;
         }),
     ),
   );
