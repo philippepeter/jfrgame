@@ -1,0 +1,241 @@
+:root {
+  --world-w: 390px;
+  --world-h: 844px;
+}
+
+* {
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
+  -webkit-tap-highlight-color: transparent;
+}
+
+html,
+body {
+  width: 100%;
+  height: 100%;
+  overflow: hidden;
+  background: #02060f;
+  touch-action: none;
+  user-select: none;
+  -webkit-user-select: none;
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", system-ui, sans-serif;
+  overscroll-behavior: none;
+}
+
+#stage {
+  position: fixed;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: #02060f;
+}
+
+/* Conteneur logique 390x844, mis à l'échelle en CSS via transform */
+#container {
+  position: relative;
+  width: var(--world-w);
+  height: var(--world-h);
+  transform-origin: center center;
+  overflow: hidden;
+  border-radius: 18px;
+  box-shadow: 0 0 60px rgba(0, 30, 60, 0.6);
+}
+
+#game {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  display: block;
+}
+
+/* ---------- HUD ---------- */
+#hud {
+  position: absolute;
+  inset: 0;
+  pointer-events: none; /* laisse passer le toucher vers le canvas */
+  z-index: 5;
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+}
+
+#hud-top {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 8px;
+  padding: 14px 14px 0;
+}
+
+.hearts {
+  font-size: 20px;
+  letter-spacing: 1px;
+  text-shadow: 0 1px 3px rgba(0, 0, 0, 0.7);
+  min-width: 70px;
+}
+
+#gauges {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  max-width: 170px;
+}
+
+.gauge {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.gauge-label {
+  font-size: 11px;
+  font-weight: 700;
+  color: #cfe9ff;
+  width: 22px;
+  text-shadow: 0 1px 2px rgba(0, 0, 0, 0.8);
+}
+
+.gauge-track {
+  flex: 1;
+  height: 12px;
+  background: rgba(0, 0, 0, 0.45);
+  border: 1px solid rgba(255, 255, 255, 0.15);
+  border-radius: 7px;
+  overflow: hidden;
+}
+
+.gauge-fill {
+  height: 100%;
+  width: 100%;
+  transform-origin: left center;
+  transform: scaleX(1);
+  border-radius: 7px;
+  transition: transform 0.12s linear;
+}
+
+.gauge-fill.o2 {
+  background: linear-gradient(90deg, #1b6ef3, #36d6ff);
+}
+
+.gauge-fill.dc {
+  background: linear-gradient(90deg, #ff9d2e, #ff2e3e);
+}
+
+.depth {
+  font-size: 15px;
+  font-weight: 800;
+  color: #eaf6ff;
+  text-align: right;
+  min-width: 64px;
+  text-shadow: 0 1px 3px rgba(0, 0, 0, 0.8);
+}
+
+#hud-bottom {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  padding: 0 16px 22px;
+}
+
+.speed-btn {
+  pointer-events: auto;
+  width: 64px;
+  height: 64px;
+  border-radius: 50%;
+  border: 2px solid rgba(255, 255, 255, 0.25);
+  background: rgba(10, 30, 55, 0.7);
+  color: #eaf6ff;
+  font-size: 26px;
+  font-weight: 700;
+  cursor: pointer;
+  backdrop-filter: blur(4px);
+  box-shadow: 0 4px 14px rgba(0, 0, 0, 0.4);
+  transition: transform 0.06s ease, background 0.1s ease;
+}
+
+.speed-btn:active {
+  transform: scale(0.92);
+  background: rgba(20, 60, 100, 0.85);
+}
+
+.speed-indicator {
+  flex: 1;
+  text-align: center;
+  font-size: 15px;
+  font-weight: 700;
+  color: #eaf6ff;
+  background: rgba(5, 20, 40, 0.55);
+  padding: 8px 10px;
+  border-radius: 12px;
+  text-shadow: 0 1px 2px rgba(0, 0, 0, 0.8);
+}
+
+/* ---------- Overlays ---------- */
+.overlay {
+  position: absolute;
+  inset: 0;
+  z-index: 10;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 24px;
+  background: radial-gradient(
+    circle at 50% 40%,
+    rgba(4, 20, 44, 0.82),
+    rgba(1, 6, 16, 0.94)
+  );
+  backdrop-filter: blur(2px);
+  text-align: center;
+}
+
+.overlay.hidden {
+  display: none;
+}
+
+.overlay-card {
+  max-width: 320px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 18px;
+}
+
+.overlay-card h1 {
+  font-size: 44px;
+  font-weight: 900;
+  letter-spacing: 3px;
+  color: #5fe6ff;
+  text-shadow: 0 0 24px rgba(54, 214, 255, 0.6), 0 3px 6px rgba(0, 0, 0, 0.6);
+}
+
+.overlay-card p {
+  font-size: 15px;
+  line-height: 1.55;
+  color: #d6ecff;
+  white-space: pre-line;
+}
+
+.overlay-btn {
+  pointer-events: auto;
+  margin-top: 6px;
+  padding: 14px 34px;
+  font-size: 19px;
+  font-weight: 800;
+  color: #03121f;
+  background: linear-gradient(180deg, #56e0ff, #1aa9e6);
+  border: none;
+  border-radius: 30px;
+  cursor: pointer;
+  box-shadow: 0 6px 20px rgba(26, 169, 230, 0.5);
+  transition: transform 0.08s ease, box-shadow 0.1s ease;
+}
+
+.overlay-btn:active {
+  transform: scale(0.95);
+  box-shadow: 0 3px 10px rgba(26, 169, 230, 0.4);
+}

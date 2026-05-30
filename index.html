@@ -1,0 +1,63 @@
+<!DOCTYPE html>
+<html lang="fr">
+  <head>
+    <meta charset="UTF-8" />
+    <meta
+      name="viewport"
+      content="width=device-width, initial-scale=1.0, maximum-scale=1.0, minimum-scale=1.0, user-scalable=no, viewport-fit=cover"
+    />
+    <meta name="theme-color" content="#020916" />
+    <title>DIVER</title>
+    <link rel="stylesheet" href="/src/style.css" />
+  </head>
+  <body>
+    <div id="stage">
+      <div id="container">
+        <canvas id="game"></canvas>
+
+        <!-- HUD superposé -->
+        <div id="hud">
+          <!-- Bandeau supérieur -->
+          <div id="hud-top">
+            <div id="hearts" class="hearts"></div>
+
+            <div id="gauges">
+              <div class="gauge">
+                <span class="gauge-label">O₂</span>
+                <div class="gauge-track">
+                  <div id="o2-fill" class="gauge-fill o2"></div>
+                </div>
+              </div>
+              <div class="gauge">
+                <span class="gauge-label">DC</span>
+                <div class="gauge-track">
+                  <div id="dc-fill" class="gauge-fill dc"></div>
+                </div>
+              </div>
+            </div>
+
+            <div id="depth" class="depth">-- m</div>
+          </div>
+
+          <!-- Bandeau inférieur -->
+          <div id="hud-bottom">
+            <button id="btn-slower" class="speed-btn" aria-label="Ralentir">▼</button>
+            <div id="speed-indicator" class="speed-indicator">🔵 Normal</div>
+            <button id="btn-faster" class="speed-btn" aria-label="Accélérer">▲</button>
+          </div>
+        </div>
+
+        <!-- Overlays d'écran -->
+        <div id="overlay" class="overlay">
+          <div class="overlay-card">
+            <h1 id="overlay-title">DIVER</h1>
+            <p id="overlay-message"></p>
+            <button id="overlay-btn" class="overlay-btn">Plonger !</button>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <script type="module" src="/src/main.ts"></script>
+  </body>
+</html>
