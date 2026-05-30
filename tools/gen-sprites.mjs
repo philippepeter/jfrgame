@@ -425,80 +425,197 @@ const MAX_DEPTH = 3100;
 const BG_SCALE = 2; // facteur d'agrandissement à l'écran
 const BG_MARGIN = 36; // marge logique pour l'inclinaison
 const NW = Math.round((W_LOGICAL + 2 * BG_MARGIN) / BG_SCALE); // largeur native
-const TILE = 16; // tuile native (= sprites de décor)
-const BAND = 2; // hauteur d'une terrasse, en tuiles
-
-const TILE_SX = {
-  rock1: 0, rock2: 16, ledge: 32, coralPink: 48,
-  coralPurple: 64, kelp: 80, anemone: 96, plant: 112,
-};
-const DECO_NAMES = ["coralPink", "coralPurple", "kelp", "anemone", "plant"];
-
-const BG_DEFS = [
-  { par: 0.25, base: 30, amp: 44, tint: [46, 86, 128, 0.5], deco: 0.25, seed: 12345 },
-  { par: 0.5, base: 28, amp: 50, tint: [26, 60, 98, 0.4], deco: 0.55, seed: 67890 },
-  { par: 0.85, base: 24, amp: 56, tint: [12, 32, 58, 0.32], deco: 0.95, seed: 24680 },
+// Palettes de coraux (corps, reflet, ombre).
+const CORALS = [
+  [[232, 110, 150], [255, 175, 205], [188, 66, 116]], // rose
+  [[242, 142, 60], [255, 196, 112], [198, 92, 38]], // orange
+  [[150, 100, 220], [202, 162, 255], [108, 62, 176]], // violet
+  [[78, 202, 172], [150, 244, 212], [46, 150, 130]], // turquoise
+  [[226, 72, 74], [255, 124, 112], [168, 40, 52]], // rouge
+  [[240, 208, 92], [255, 236, 150], [198, 160, 48]], // jaune
 ];
 
-function bgCols(wy, base, amp, ph) {
-  const a = Math.sin(wy / 120 + ph);
-  const b = Math.sin(wy / 61 + ph * 1.7);
-  const px = base + amp * (0.5 + 0.5 * a) * 0.72 + amp * (0.5 + 0.5 * b) * 0.28;
-  return Math.max(1, Math.round(px / TILE));
-}
+// 3 plans : lointain (silhouette bleutée) → proche (récif net et coloré).
+const BG_DEFS = [
+  { par: 0.25, role: "far", bank: 30, chan: 150, deco: 0.30, seed: 12345, tint: [44, 92, 134, 0.55] },
+  { par: 0.5, role: "mid", bank: 40, chan: 132, deco: 0.62, seed: 67890, tint: [22, 64, 104, 0.4] },
+  { par: 0.85, role: "near", bank: 50, chan: 120, deco: 1.0, seed: 24680, tint: [10, 34, 62, 0.26] },
+];
 
 function buildBgImage(def) {
   const NH = Math.round((MAX_DEPTH * def.par + H_LOGICAL) / BG_SCALE);
   const dst = new Uint8Array(NW * NH * 4);
-  function copyTile(name, dx, dy) {
-    const sx = TILE_SX[name];
-    for (let y = 0; y < TILE; y++)
-      for (let x = 0; x < TILE; x++) {
-        const si = ((64 + y) * SHEET_W + (sx + x)) * 4; // tuiles à y=64 sur la planche
-        if (buf[si + 3] === 0) continue;
-        const gx = dx + x;
-        const gy = dy + y;
-        if (gx < 0 || gx >= NW || gy < 0 || gy >= NH) continue;
-        const di = (gy * NW + gx) * 4;
-        dst[di] = buf[si];
-        dst[di + 1] = buf[si + 1];
-        dst[di + 2] = buf[si + 2];
-        dst[di + 3] = 255;
+  const r = rng(def.seed);
+
+  const put = (x, y, c, a = 1) => {
+    x |= 0;
+    y |= 0;
+    if (x < 0 || x >= NW || y < 0 || y >= NH) return;
+    const i = (y * NW + x) * 4;
+    if (a >= 1 || dst[i + 3] === 0) {
+      dst[i] = c[0]; dst[i + 1] = c[1]; dst[i + 2] = c[2]; dst[i + 3] = 255;
+    } else {
+      dst[i] = dst[i] * (1 - a) + c[0] * a;
+      dst[i + 1] = dst[i + 1] * (1 - a) + c[1] * a;
+      dst[i + 2] = dst[i + 2] * (1 - a) + c[2] * a;
+      dst[i + 3] = 255;
+    }
+  };
+
+  // Couleurs de roche selon le plan (lointain plus bleu/sombre).
+  const ROCK =
+    def.role === "near" ? [72, 88, 106] : def.role === "mid" ? [54, 80, 110] : [42, 70, 104];
+  const ROCK_D =
+    def.role === "near" ? [48, 60, 78] : def.role === "mid" ? [36, 56, 84] : [28, 50, 80];
+  const ROCK_L =
+    def.role === "near" ? [120, 140, 160] : def.role === "mid" ? [94, 124, 156] : [66, 98, 132];
+  const SAND = def.role === "near" ? [186, 172, 132] : [150, 150, 140];
+
+  // Bord intérieur d'une berge (récif) : contour ondulant, baies et caps.
+  const bankEdge = (y, ph) => {
+    const a = Math.sin(y * 0.018 + ph);
+    const b = Math.sin(y * 0.047 + ph * 1.7);
+    const c = Math.sin(y * 0.0095 + ph * 0.6);
+    return def.bank * (0.6 + 0.5 * (0.5 + 0.5 * a) + 0.28 * (0.5 + 0.5 * b) + 0.5 * (0.5 + 0.5 * c));
+  };
+
+  // --- Coraux & plantes (poussent vers le haut depuis un point d'ancrage) ---
+  function coralBranch(cx, by, scale, pal) {
+    const [col, hi, dk] = pal;
+    const nb = 3 + ((r() * 3) | 0);
+    for (let b = 0; b < nb; b++) {
+      let x = cx + (b - nb / 2) * 2 * scale;
+      let y = by;
+      const len = (8 + r() * 10) * scale;
+      const sway = (r() - 0.5) * 0.5;
+      for (let k = 0; k < len; k++) {
+        const t = k / len;
+        const w = Math.max(1, (2.2 - 1.6 * t) * scale);
+        const cc = k > len - 3 ? hi : t > 0.5 ? col : dk;
+        for (let o = -w; o <= w; o++) put(x + o, y, cc);
+        y -= 1;
+        x += sway + Math.sin((by - y) * 0.4 + b) * 0.5;
       }
-  }
-  const rows = Math.ceil(NH / TILE);
-  function side(dir, ph, sd) {
-    const r = rng(sd);
-    const tileDX = (c) => (dir === 1 ? c * TILE : NW - (c + 1) * TILE);
-    const pick = () => DECO_NAMES[(r() * DECO_NAMES.length) | 0];
-    let prevW = bgCols(0, def.base, def.amp, ph);
-    for (let b = 0; b * BAND < rows; b++) {
-      const topRow = b * BAND;
-      const w = bgCols(topRow * TILE, def.base, def.amp, ph);
-      for (let rr = 0; rr < BAND; rr++) {
-        const row = topRow + rr;
-        for (let c = 0; c < w; c++) {
-          const lit = rr === 0 && c >= prevW;
-          const h = ((c * 73856093) ^ (row * 19349663) ^ sd) >>> 0;
-          const name = lit ? "ledge" : h % 5 === 0 ? "rock2" : "rock1";
-          copyTile(name, tileDX(c), row * TILE);
-        }
-      }
-      if (w > prevW) {
-        for (let c = prevW; c < w; c++)
-          if (r() < def.deco) copyTile(pick(), tileDX(c), (topRow - 1) * TILE);
-      }
-      if (r() < def.deco) copyTile(pick(), tileDX(w - 1), (topRow - 1) * TILE);
-      if (r() < def.deco * 0.6) {
-        const fr = topRow + 1 + ((r() * (BAND - 1)) | 0);
-        copyTile(pick(), tileDX(w - 1), fr * TILE);
-      }
-      prevW = w;
     }
   }
-  side(1, 0.6, def.seed);
-  side(-1, 2.3, def.seed ^ 0x9e3779b9);
-  // teinte de profondeur (perspective atmosphérique) sur les pixels dessinés
+  function coralFan(cx, by, scale, pal) {
+    const [col, hi, dk] = pal;
+    const rad = (7 + r() * 6) * scale;
+    const rays = 7 + ((r() * 5) | 0);
+    for (let i = 0; i < rays; i++) {
+      const ang = -Math.PI / 2 + (i / (rays - 1) - 0.5) * 2.0;
+      for (let k = 0; k < rad; k++) {
+        const x = cx + Math.cos(ang) * k;
+        const y = by + Math.sin(ang) * k;
+        put(x, y, k > rad - 2 ? hi : col);
+        if (k % 3 === 0) put(x + 1, y, dk);
+      }
+    }
+  }
+  function coralRound(cx, by, scale, pal) {
+    const [col, hi, dk] = pal;
+    const rad = (4 + r() * 4) * scale;
+    for (let y = -rad; y <= rad; y++)
+      for (let x = -rad; x <= rad; x++) {
+        const d = Math.hypot(x, y);
+        if (d > rad) continue;
+        const cc = y < -rad * 0.4 ? hi : d > rad * 0.7 ? dk : col;
+        put(cx + x, by - rad + y, cc);
+      }
+    // pointillés (texture cerveau)
+    for (let n = 0; n < rad * 2; n++)
+      put(cx + (r() * 2 - 1) * rad * 0.7, by - rad + (r() * 2 - 1) * rad * 0.7, dk);
+  }
+  function kelp(cx, by, scale) {
+    const green = def.role === "far" ? [56, 120, 110] : [86, 176, 96];
+    const dark = def.role === "far" ? [40, 90, 86] : [52, 132, 66];
+    const h = (16 + r() * 18) * scale;
+    const ph = r() * 6;
+    for (let k = 0; k < h; k++) {
+      const y = by - k;
+      const x = cx + Math.sin(k * 0.18 + ph) * 3 * scale;
+      const w = Math.max(0, 1 * scale);
+      for (let o = -w; o <= w; o++) put(x + o, y, k % 4 === 0 ? dark : green);
+    }
+  }
+  function seagrass(cx, by, scale) {
+    const green = def.role === "far" ? [60, 130, 110] : [120, 198, 110];
+    const nb = 4 + ((r() * 4) | 0);
+    for (let b = 0; b < nb; b++) {
+      let x = cx + (b - nb / 2) * 2 * scale;
+      const h = (6 + r() * 8) * scale;
+      for (let k = 0; k < h; k++) put(x + Math.sin(k * 0.3 + b) * 1.5, by - k, green);
+    }
+  }
+  function anemone(cx, by, scale) {
+    const body = [90, 206, 200], tip = [255, 158, 150];
+    const baseR = 3 * scale;
+    for (let x = -baseR; x <= baseR; x++) put(cx + x, by, body), put(cx + x, by - 1, body);
+    const n = 6 + ((r() * 4) | 0);
+    for (let i = 0; i < n; i++) {
+      const x = cx + (i - n / 2) * 1.6 * scale;
+      const h = (4 + r() * 5) * scale;
+      for (let k = 0; k < h; k++) put(x, by - 1 - k, k === ((h | 0) - 1) ? tip : body);
+    }
+  }
+  function plantCluster(cx, by, scale) {
+    const t = r();
+    if (t < 0.34) coralBranch(cx, by, scale, CORALS[(r() * CORALS.length) | 0]);
+    else if (t < 0.52) coralFan(cx, by, scale, CORALS[(r() * CORALS.length) | 0]);
+    else if (t < 0.68) coralRound(cx, by, scale, CORALS[(r() * CORALS.length) | 0]);
+    else if (t < 0.82) kelp(cx, by, scale);
+    else if (t < 0.93) seagrass(cx, by, scale);
+    else anemone(cx, by, scale);
+  }
+
+  // --- Berges récifales des deux côtés + décor sur la crête ---
+  function bank(dir, ph) {
+    // remplissage de la roche
+    for (let y = 0; y < NH; y++) {
+      const e = Math.round(bankEdge(y, ph));
+      for (let d = 0; d < e; d++) {
+        const x = dir === 1 ? d : NW - 1 - d;
+        // ombrage : clair près de la crête (face au chenal), sombre au fond
+        let c = ROCK;
+        const fromCrest = e - d;
+        if (fromCrest <= 2) c = ROCK_L;
+        else if (d < 2) c = ROCK_D;
+        const n = ((x * 73856093) ^ (y * 19349663) ^ def.seed) >>> 0;
+        if (n % 7 === 0) c = c === ROCK ? ROCK_D : c;
+        else if (n % 11 === 0) c = ROCK_L;
+        put(x, y, c);
+      }
+      // liseré de sable sur la crête
+      const xc = dir === 1 ? e - 1 : NW - e;
+      if (((y ^ def.seed) & 3) === 0) put(xc, y, SAND, 0.5);
+    }
+    // décor planté le long de la crête, poussant vers le chenal (haut)
+    const scale = def.role === "near" ? 1.15 : def.role === "mid" ? 0.9 : 0.7;
+    const step = def.role === "near" ? 9 : def.role === "mid" ? 12 : 16;
+    for (let y = NH - 4; y > 6; y -= step + ((r() * step) | 0)) {
+      if (r() > def.deco) continue;
+      const e = Math.round(bankEdge(y, ph));
+      const cx = dir === 1 ? e - 2 + (r() * 6 - 3) : NW - e + 2 + (r() * 6 - 3);
+      plantCluster(cx, y, scale * (0.8 + r() * 0.5));
+    }
+  }
+
+  bank(1, def.seed * 0.001);
+  bank(-1, def.seed * 0.001 + 2.3);
+
+  // Silhouettes de récif lointain au centre (uniquement plan lointain, faible).
+  if (def.role === "far") {
+    for (let n = 0; n < NH / 60; n++) {
+      const cx = NW * (0.3 + r() * 0.4);
+      const by = r() * NH;
+      const rad = 10 + r() * 18;
+      for (let y = -rad; y <= 0; y++)
+        for (let x = -rad; x <= rad; x++)
+          if (Math.hypot(x, y * 1.6) <= rad) put(cx + x, by + y, ROCK_D, 0.55);
+    }
+  }
+
+  // Teinte de profondeur (perspective atmosphérique) sur les pixels dessinés.
   const [tr, tg, tb, ta] = def.tint;
   for (let p = 0; p < NW * NH; p++) {
     const i = p * 4;
