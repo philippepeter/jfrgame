@@ -29,7 +29,10 @@ export const START_HEARTS = 3;
 export const INVINCIBLE_TIME = 1.6; // secondes de répit après un dégât
 
 export const MARGIN_X = 38;
-export const DIVER_MIN_Y = 110; // plus haut = zone sûre
+// Le plongeur ne monte jamais jusqu'à la ligne d'apparition de la faune :
+// la bande tout en haut (0 → DIVER_MIN_Y) sert de zone tampon où les
+// créatures surgissent et descendent, laissant le temps de les esquiver.
+export const DIVER_MIN_Y = 250; // plus haut = plus sûr (loin du voile rouge)
 export const DIVER_MAX_Y = 800; // plus bas = zone de danger
 export const DIVER_START_Y = 440;
 
@@ -148,7 +151,7 @@ export function depthMeters(s: GameState): number {
 /** Intervalle d'apparition courant : plus dense près de la surface. */
 function spawnInterval(s: GameState): number {
   const df = s.depth / MAX_DEPTH; // 1 = profond, 0 = surface
-  return SPAWN_BASE * (0.45 + 0.55 * df);
+  return SPAWN_BASE * (0.55 + 0.45 * df);
 }
 
 function pickCreatureType(df: number): CreatureType {
@@ -172,9 +175,16 @@ function spawnCreature(s: GameState): void {
 
   if (type === "jelly") {
     const w = 30 + Math.random() * 14;
+    // La méduse est quasi immobile : on évite de la faire apparaître pile
+    // au-dessus du plongeur (sinon esquive impossible).
+    let jx = MARGIN_X + Math.random() * (WORLD_W - 2 * MARGIN_X);
+    if (Math.abs(jx - s.diverX) < 60) {
+      jx += (jx < s.diverX ? -1 : 1) * 80;
+      jx = clamp(jx, MARGIN_X, WORLD_W - MARGIN_X);
+    }
     s.creatures.push({
       type,
-      x: MARGIN_X + Math.random() * (WORLD_W - 2 * MARGIN_X),
+      x: jx,
       y: -40,
       w,
       h: w * 1.3,
@@ -198,13 +208,15 @@ function spawnCreature(s: GameState): void {
       sway: 0,
     });
   } else {
-    // requin : traverse l'écran horizontalement, rapide
+    // requin : traverse l'écran horizontalement, rapide.
+    // Apparaît dans la bande tampon du haut (au-dessus de DIVER_MIN_Y),
+    // donc toujours télégraphié avant d'atteindre la zone du plongeur.
     const w = 78 + Math.random() * 26;
     const fromLeft = Math.random() < 0.5;
     s.creatures.push({
       type,
       x: fromLeft ? -w : WORLD_W + w,
-      y: 60 + Math.random() * 200,
+      y: 50 + Math.random() * (DIVER_MIN_Y - 110),
       w,
       h: w * 0.42,
       vx: 120 + Math.random() * 70,
@@ -230,7 +242,12 @@ function aabb(
   );
 }
 
-/** Applique un dégât : retire un cœur et redémarre le monde (ou Game Over). */
+/**
+ * Applique un dégât : retire un cœur (ou Game Over).
+ * La progression de profondeur est CONSERVÉE — les cœurs servent de vraies
+ * secondes chances. On réinitialise les jauges, on remet le plongeur à
+ * hauteur sûre, on nettoie la faune proche et on accorde l'invincibilité.
+ */
 function applyDamage(s: GameState): void {
   s.hearts -= 1;
   if (s.hearts <= 0) {
@@ -238,13 +255,12 @@ function applyDamage(s: GameState): void {
     s.phase = "gameover";
     return;
   }
-  // Le monde redémarre, le joueur garde son compte de cœurs.
-  s.depth = MAX_DEPTH;
+  // On garde la profondeur (s.depth) : la remontée continue d'où on en est.
   s.o2 = 100;
-  s.dc = 0;
+  s.dc = Math.min(s.dc, 40); // soulage la décompression sans tout effacer
   s.diverScreenY = DIVER_START_Y;
   s.danger = 0;
-  s.creatures = [];
+  s.creatures = []; // dégage les créatures pour ne pas enchaîner les dégâts
   s.invincible = INVINCIBLE_TIME;
   s.spawnTimer = spawnInterval(s);
 }
