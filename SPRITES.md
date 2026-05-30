@@ -6,9 +6,15 @@ l'habillage sans toucher au TypeScript.
 
 ## Fichiers
 
-- `public/sprites.png` — la planche (64 × 64 px, fond transparent).
+- `public/sprites.png` — la planche (128 × 64 px, fond transparent). Elle ne
+  contient que les sprites animés dessinés au runtime (plongeur + créatures).
 - `public/sprites.json` — l'atlas : pour chaque sprite, les rectangles
   `[x, y, largeur, hauteur]` de chaque frame d'animation, et le `fps`.
+
+> Les tuiles de décor (roche, corail, algues…) ne sont PAS dans `sprites.png` :
+> elles sont peintes en interne par `tools/gen-sprites.mjs` uniquement pour
+> cuire les images de fond `bg-*.png`. Pour changer le décor, édite ces images
+> (voir plus bas) ou les fonctions `paint*` du script.
 
 ## Disposition actuelle (grille de 16 px)
 

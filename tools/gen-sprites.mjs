@@ -384,7 +384,13 @@ function encodePNG(width, height, rgba) {
   ]);
 }
 
-const png = encodePNG(SHEET_W, SHEET_H, buf);
+// La planche EXPORTÉE ne contient que les sprites utilisés au runtime
+// (plongeur + créatures, lignes 0..63). Les tuiles de décor (rock/corail/…,
+// à partir de y=64) restent dans `buf` car le générateur s'en sert pour cuire
+// les images de fond bg-*.png, mais elles ne sont pas livrées dans sprites.png.
+const EXPORT_H = 64;
+const exportBuf = buf.subarray(0, SHEET_W * EXPORT_H * 4);
+const png = encodePNG(SHEET_W, EXPORT_H, exportBuf);
 
 // ---------- Atlas ----------
 const atlas = {
@@ -396,14 +402,6 @@ const atlas = {
     jelly: { frames: [[0, 16, 16, 16], [16, 16, 16, 16]], fps: 3 },
     octopus: { frames: [[0, 32, 16, 16], [16, 32, 16, 16]], fps: 4 },
     shark: { frames: [[0, 48, 32, 16], [32, 48, 32, 16]], fps: 6 },
-    rock1: { frames: [[0, 64, 16, 16]], fps: 1 },
-    rock2: { frames: [[16, 64, 16, 16]], fps: 1 },
-    ledge: { frames: [[32, 64, 16, 16]], fps: 1 },
-    coralPink: { frames: [[48, 64, 16, 16]], fps: 1 },
-    coralPurple: { frames: [[64, 64, 16, 16]], fps: 1 },
-    kelp: { frames: [[80, 64, 16, 16]], fps: 1 },
-    anemone: { frames: [[96, 64, 16, 16]], fps: 1 },
-    plant: { frames: [[112, 64, 16, 16]], fps: 1 },
   },
 };
 
@@ -414,7 +412,7 @@ writeFileSync(
   JSON.stringify(atlas, null, 2) + "\n",
 );
 
-console.log(`OK -> public/sprites.png (${SHEET_W}x${SHEET_H}, ${png.length} o) + public/sprites.json`);
+console.log(`OK -> public/sprites.png (${SHEET_W}x${EXPORT_H}, ${png.length} o) + public/sprites.json`);
 
 // ---------- 3 grandes images de fond parallaxe ----------
 // Décor « falaises à terrasses + corail » cuit dans 3 PNG éditables.
