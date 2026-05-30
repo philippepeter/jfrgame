@@ -6,11 +6,14 @@ import {
   WORLD_H,
   MAX_DEPTH,
   DANGER_START_Y,
+  SWIM_SPEEDS,
   type GameState,
   type Creature,
 } from "./game";
 
 type Ctx = CanvasRenderingContext2D;
+
+const SNOW_RANGE = WORLD_H + 80;
 
 // Champ d'étoiles bioluminescentes (parallaxe légère), généré une fois.
 const biolum = Array.from({ length: 70 }, () => ({
@@ -18,7 +21,21 @@ const biolum = Array.from({ length: 70 }, () => ({
   y: Math.random() * WORLD_H,
   r: 0.6 + Math.random() * 1.6,
   ph: Math.random() * Math.PI * 2,
+  par: 0.4 + Math.random() * 0.4,
 }));
+
+// « Neige marine » / plancton : particules qui défilent vers le bas pour
+// donner la sensation que le plongeur remonte. Chaque particule a un facteur
+// de parallaxe (les proches descendent plus vite que les lointaines).
+const snow = Array.from({ length: 60 }, () => ({
+  x: Math.random() * WORLD_W,
+  y: Math.random() * SNOW_RANGE,
+  r: 0.7 + Math.random() * 1.8,
+  par: 0.45 + Math.random() * 0.6, // 0.45 → 1.05
+  a: 0.1 + Math.random() * 0.3,
+}));
+
+const mod = (v: number, m: number) => ((v % m) + m) % m;
 
 // Zones de couleur selon la profondeur (df: 1 profond → 0 surface).
 const ABYSS_TOP = [2, 6, 18];
@@ -48,15 +65,18 @@ function background(ctx: Ctx, s: GameState, t: number): void {
   ctx.fillStyle = grad;
   ctx.fillRect(0, 0, WORLD_W, WORLD_H);
 
-  // Bioluminescence dans les abysses (s'estompe vers la surface).
+  // Bioluminescence dans les abysses (s'estompe vers la surface, défile
+  // vers le bas avec la remontée).
+  const risen = MAX_DEPTH - s.depth;
   const bioAlpha = Math.max(0, df - 0.45) / 0.55;
   if (bioAlpha > 0.01) {
     for (const p of biolum) {
       const tw = 0.4 + 0.6 * (0.5 + 0.5 * Math.sin(t * 2 + p.ph));
+      const sy = mod(p.y + risen * p.par, WORLD_H);
       ctx.globalAlpha = bioAlpha * tw * 0.8;
       ctx.fillStyle = "#7fe9ff";
       ctx.beginPath();
-      ctx.arc(p.x, p.y, p.r, 0, Math.PI * 2);
+      ctx.arc(p.x, sy, p.r, 0, Math.PI * 2);
       ctx.fill();
     }
     ctx.globalAlpha = 1;
@@ -90,6 +110,27 @@ function lerpArr(a: number[], b: number[], t: number): number[] {
     a[1] + (b[1] - a[1]) * t,
     a[2] + (b[2] - a[2]) * t,
   ];
+}
+
+// Particules de neige marine qui défilent vers le bas. Leur longueur
+// s'allonge avec la vitesse de nage → sensation de remontée plus ou moins
+// rapide selon le palier choisi.
+function marineSnow(ctx: Ctx, s: GameState): void {
+  const risen = MAX_DEPTH - s.depth;
+  const streak = (SWIM_SPEEDS[s.speedLevel] / SWIM_SPEEDS[SWIM_SPEEDS.length - 1]) * 11;
+  ctx.lineCap = "round";
+  ctx.strokeStyle = "#cfeeff";
+  for (const p of snow) {
+    const sy = mod(p.y + risen * p.par, SNOW_RANGE) - 40;
+    const len = 1.5 + streak * p.par;
+    ctx.globalAlpha = p.a;
+    ctx.lineWidth = p.r;
+    ctx.beginPath();
+    ctx.moveTo(p.x, sy);
+    ctx.lineTo(p.x, sy + len);
+    ctx.stroke();
+  }
+  ctx.globalAlpha = 1;
 }
 
 function drawBubbles(ctx: Ctx, s: GameState): void {
@@ -304,6 +345,7 @@ function dangerVeil(ctx: Ctx, s: GameState): void {
 export function render(ctx: Ctx, s: GameState): void {
   const t = s.time;
   background(ctx, s, t);
+  marineSnow(ctx, s);
 
   for (const c of s.creatures) drawCreature(ctx, c);
 
