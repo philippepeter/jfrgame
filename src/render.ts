@@ -14,6 +14,9 @@ import {
 type Ctx = CanvasRenderingContext2D;
 
 const SNOW_RANGE = WORLD_H + 80;
+// Position d'écran de la ligne d'eau quand la profondeur atteint 0.
+// La surface descend dans le champ de vision au rythme 1:1 de la remontée.
+const SURFACE_Y0 = 235;
 
 // Champ d'étoiles bioluminescentes (parallaxe légère), généré une fois.
 const biolum = Array.from({ length: 70 }, () => ({
@@ -131,6 +134,57 @@ function marineSnow(ctx: Ctx, s: GameState): void {
     ctx.stroke();
   }
   ctx.globalAlpha = 1;
+}
+
+// Matérialise la surface de l'eau : une ligne ondulante lumineuse surmontée
+// d'une zone claire « hors de l'eau ». Elle descend dans l'écran à mesure
+// que la profondeur approche de 0, jusqu'à ce que le plongeur la franchisse.
+function drawSurface(ctx: Ctx, s: GameState, t: number): void {
+  const sy = SURFACE_Y0 - s.depth; // 1:1 avec la profondeur
+  if (sy < -160) return;
+
+  const amp = 6;
+  const wave = (x: number) =>
+    sy + Math.sin(x * 0.045 + t * 2.2) * amp + Math.sin(x * 0.11 + t * 1.3) * amp * 0.4;
+
+  ctx.save();
+
+  // Zone au-dessus de l'eau (ciel / lumière).
+  ctx.beginPath();
+  ctx.moveTo(0, -200);
+  ctx.lineTo(WORLD_W, -200);
+  for (let x = WORLD_W; x >= 0; x -= 8) ctx.lineTo(x, wave(x));
+  ctx.closePath();
+  const g = ctx.createLinearGradient(0, sy - 200, 0, sy + 12);
+  g.addColorStop(0, "rgba(228,250,255,0.96)");
+  g.addColorStop(0.7, "rgba(150,226,255,0.7)");
+  g.addColorStop(1, "rgba(120,210,250,0.4)");
+  ctx.fillStyle = g;
+  ctx.fill();
+
+  // Ligne de surface brillante.
+  ctx.beginPath();
+  for (let x = 0; x <= WORLD_W; x += 8) {
+    const y = wave(x);
+    if (x === 0) ctx.moveTo(x, y);
+    else ctx.lineTo(x, y);
+  }
+  ctx.strokeStyle = "rgba(255,255,255,0.85)";
+  ctx.lineWidth = 3;
+  ctx.stroke();
+
+  // Reflets de lumière sur la crête.
+  ctx.globalCompositeOperation = "lighter";
+  for (let i = 0; i < 3; i++) {
+    const x = ((i + 0.5) / 3) * WORLD_W;
+    ctx.globalAlpha = 0.22;
+    ctx.fillStyle = "#ffffff";
+    ctx.beginPath();
+    ctx.ellipse(x, wave(x) - 7, 30, 6, 0, 0, Math.PI * 2);
+    ctx.fill();
+  }
+
+  ctx.restore();
 }
 
 function drawBubbles(ctx: Ctx, s: GameState): void {
@@ -349,6 +403,7 @@ export function render(ctx: Ctx, s: GameState): void {
 
   for (const c of s.creatures) drawCreature(ctx, c);
 
+  drawSurface(ctx, s, t);
   drawBubbles(ctx, s);
   drawDiver(ctx, s, t);
   dangerVeil(ctx, s);

@@ -5,7 +5,7 @@
 export const WORLD_W = 390;
 export const WORLD_H = 844;
 
-export const MAX_DEPTH = 4200; // longueur de la remontée (px logiques)
+export const MAX_DEPTH = 3100; // longueur de la remontée (px logiques)
 export const SCROLL_SPEED = 58; // vitesse de référence (= palier central)
 
 // 5 paliers de vitesse de nage. L'index 2 (Normal) égale SCROLL_SPEED.
@@ -325,9 +325,11 @@ export function update(s: GameState, dt: number, input: Input): void {
   s.bubbles = s.bubbles.filter((b) => b.life > 0 && b.y > -10);
 
   // --- Apparition & mise à jour de la faune ---
+  // On cesse de faire apparaître des créatures tout près de la surface,
+  // pour ne pas en voir surgir au-dessus de la ligne d'eau.
   s.spawnTimer -= dt;
   if (s.spawnTimer <= 0) {
-    spawnCreature(s);
+    if (s.depth > 130) spawnCreature(s);
     s.spawnTimer = spawnInterval(s);
   }
   for (const c of s.creatures) {
